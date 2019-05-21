@@ -39,7 +39,7 @@ In addition to the parameters specified in PageRank, the following additional pa
 `./SSSP_GraphBolt -sourceVertex 192 -weightCap 5 -numberOfUpdateBatches 2 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"`
 
 ### Parameters
- - sourceVertex : File which specify the list of seed vertices. Each seed vertex should be specified in a separate line
+ - sourceVertex : Source vertex
  - weightCap : The maximum edge weight. The weight of an edge(u, v) is calculated as (u+v) % weightCap + 1
 
 ## Running BFS
@@ -47,7 +47,7 @@ In addition to the parameters specified in PageRank, the following additional pa
 `./BFS_GraphBolt -sourceVertex 192 -numberOfUpdateBatches 2 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"`
 
 ### Parameters
- - sourceVertex : File which specify the list of seed vertices. Each seed vertex should be specified in a separate line
+ - sourceVertex : Source vertex
  
 
 
