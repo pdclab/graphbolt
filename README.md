@@ -78,6 +78,7 @@ To cite, you can use the following BibTeX entries:
  address = {New York, NY, USA},
  keywords = {Incremental Processing, Streaming Graphs},
 } 
+
 @inproceedings{Vora:2017:KFA:3037697.3037748,
  author = {Vora, Keval and Gupta, Rajiv and Xu, Guoqing},
  title = {KickStarter: Fast and Accurate Computations on Streaming Graphs via Trimmed Approximations},
