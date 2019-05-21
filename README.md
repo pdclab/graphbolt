@@ -36,7 +36,7 @@ In addition to the parameters specified in PageRank, the following additional pa
 
 ## Running SSSP
 
-`./SSSP_GraphBolt -sourceVertex 192 -weightCap 5 -numberOfUpdateBatches 2 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"`
+`./SSSP_KickStarter -sourceVertex 192 -weightCap 5 -numberOfUpdateBatches 2 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"`
 
 ### Parameters
  - sourceVertex : The source vertex for SSSP
@@ -44,7 +44,7 @@ In addition to the parameters specified in PageRank, the following additional pa
 
 ## Running BFS
 
-`./BFS_GraphBolt -sourceVertex 192 -numberOfUpdateBatches 2 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"`
+`./BFS_KickStarter -sourceVertex 192 -numberOfUpdateBatches 2 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"`
 
 ### Parameters
  - sourceVertex : The source vertex for BFS
