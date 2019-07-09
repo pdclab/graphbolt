@@ -1,4 +1,6 @@
-# GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs
+<img src="https://user-images.githubusercontent.com/8582843/60870031-e6e69f80-a1e4-11e9-8d44-e8472355230a.png" alt="Lumos" width="200">
+
+**GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs**
 
 ## Requirements
 - The initial input graph should be in the adjaceny graph format (http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html).
