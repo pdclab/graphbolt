@@ -3,11 +3,11 @@
 **GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs**
 
 ## Requirements
-- The initial input graph should be in the adjaceny graph format (http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html). 
-- You can use `tools/SNAPtoAdjConverter` to convert an input graph in Edgelist format(SNAP format) to the adjacency graph format,  as follows:
+- The initial input graph should be in the [adjaceny graph format](http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html). 
+- You can use `tools/SNAPtoAdjConverter` to convert an input graph in Edgelist format (SNAP format) to the adjacency graph format,  as follows:
 ```bash
 $ ./SNAPtoAdjConverter inputGraph.snap inputGraph.adj
-# for undirected graphs, use the -s flag
+# for undirected (symmetric) graphs, use the -s flag
 $ ./SNAPtoAdjConverter -s inputGraph.snap inputGraphUndirected.adj 
 ```
 - Edge additions and deletions file should be in SNAP format. i.e one edge in each line. The source and destination of the edge are separated by a space.
