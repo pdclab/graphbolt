@@ -3,10 +3,16 @@
 **GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs**
 
 ## Requirements
-- The initial input graph should be in the adjaceny graph format (http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html).
+- The initial input graph should be in the adjaceny graph format (http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html). 
+- You can use `tools/SNAPtoAdjConverter` to convert an input graph in Edgelist format(SNAP format) to the adjacency graph format,  as follows:
+```bash
+$ ./SNAPtoAdjConverter inputGraph.snap inputGraph.adj
+# for undirected graphs, use the -s flag
+$ ./SNAPtoAdjConverter -s inputGraph.snap inputGraphUndirected.adj 
+```
 - Edge additions and deletions file should be in SNAP format. i.e one edge in each line. The source and destination of the edge are separated by a space.
 Example edge additions file:
-```
+```bash
 1 2
 2 3
 ...
@@ -16,7 +22,9 @@ Example edge additions file:
 
 ## Running PageRank
 
-`./PageRank_GraphBolt -numberOfUpdateBatches 2 -maxiters 10 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"` 
+```bash
+./PageRank_GraphBolt -numberOfUpdateBatches 2 -maxiters 10 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"
+```
 
 ### Parameters
  - nAdditions : Number of edge additions
@@ -29,7 +37,10 @@ Example edge additions file:
 
 ## Running Label Propagation
 
-`./LabelPropagation_GraphBolt -features 2  -seedsFile "seedsFile.txt" -numberOfUpdateBatches 2 -maxiters 10 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"` 
+```bash
+./LabelPropagation_GraphBolt -features 2  -seedsFile "seedsFile.txt" -numberOfUpdateBatches 2 -maxiters 10 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"
+```
+
 ### Parameters
 In addition to the parameters specified in PageRank, the following additional parameters are required for running Label Propagation.
  - seedsFile : File which specify the list of seed vertices. Each seed vertex should be specified in a separate line
@@ -38,7 +49,9 @@ In addition to the parameters specified in PageRank, the following additional pa
 
 ## Running SSSP
 
-`./SSSP_KickStarter -sourceVertex 192 -weightCap 5 -numberOfUpdateBatches 2 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"`
+```bash
+./SSSP_KickStarter -sourceVertex 192 -weightCap 5 -numberOfUpdateBatches 2 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"
+```
 
 ### Parameters
  - sourceVertex : The source vertex for SSSP
@@ -46,7 +59,9 @@ In addition to the parameters specified in PageRank, the following additional pa
 
 ## Running BFS
 
-`./BFS_KickStarter -sourceVertex 192 -numberOfUpdateBatches 2 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"`
+```bash
+./BFS_KickStarter -sourceVertex 192 -numberOfUpdateBatches 2 -nAdditions 1000 -additionsFile "additionsFile.snap" -nDeletions 1000 -deletionsFile "deletionsFile.snap" "inputGraph.adj"`
+```
 
 ### Parameters
  - sourceVertex : The source vertex for BFS
