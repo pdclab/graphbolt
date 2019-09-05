@@ -32,7 +32,7 @@ Example edge additions file:
  - additionsFile : Input file which contains the stream of edge to be added
  - deletionsFile : Input file which contains the stream of edges to be deleted
  - numberOfUpdateBatches : Optional parameter to specify the number of edge updates to be made. Default is 1
- - maxIters : Optional parameter to specify the number of iterations that the algorithm should be run. Default is 100
+ - maxiters : Optional parameter to specify the number of iterations that the algorithm should be run. Default is 100
  - nWorkers : Optional parameter to specify the number of worker threads. Default is specified 
 
 ## Running Label Propagation
