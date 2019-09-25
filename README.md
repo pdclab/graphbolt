@@ -1,9 +1,9 @@
-<img src="https://user-images.githubusercontent.com/8582843/60870031-e6e69f80-a1e4-11e9-8d44-e8472355230a.png" alt="Lumos" width="200">
+<img src="https://user-images.githubusercontent.com/8582843/60870031-e6e69f80-a1e4-11e9-8d44-e8472355230a.png" alt="GraphBolt" width="200">
 
 **GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs**
 
 ## Requirements
-- The initial input graph should be in the [adjaceny graph format](http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html). 
+- The initial input graph should be in the [adjacency graph format](http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html). 
 - You can use `tools/SNAPtoAdjConverter` to convert an input graph in Edgelist format (SNAP format) to the adjacency graph format,  as follows:
 ```bash
 $ ./SNAPtoAdjConverter inputGraph.snap inputGraph.adj
@@ -33,7 +33,7 @@ Example edge additions file:
  - deletionsFile : Input file which contains the stream of edges to be deleted
  - numberOfUpdateBatches : Optional parameter to specify the number of edge updates to be made. Default is 1
  - maxiters : Optional parameter to specify the number of iterations that the algorithm should be run. Default is 100
- - nWorkers : Optional parameter to specify the number of worker threads. Default is specified 
+ - nworkers : Optional parameter to specify the number of worker threads. Default is the number of cores in the machine. 
 
 ## Running Label Propagation
 
