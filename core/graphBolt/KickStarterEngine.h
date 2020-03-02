@@ -175,7 +175,6 @@ public:
     freeTemporaryStructures();
     freeVertexSubsets();
     global_info.cleanup();
-    ingestor.cleanup();
   }
 
   // ======================================================================
@@ -483,7 +482,7 @@ public:
       }
       bool *temp = changed;
       changed = frontier;
-      frontier = changed;
+      frontier = temp;
     }
 
     // Pull once for all the affected vertices
