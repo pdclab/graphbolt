@@ -5,6 +5,7 @@
 ## 1. What is it?
 
 GraphBolt is an efficient streaming graph processing system that provides Bulk Synchronous Parallel (BSP) guarantees. GraphBolt performs dependency-driven incremental processing which quickly reacts to graph changes, and provides low latency & high throughput processing. [[Read more]](https://www.cs.sfu.ca/~keval/contents/papers/graphbolt-eurosys19.pdf)
+
 For asynchronous algorithms, GraphBolt incorporates KickStarter's light-weight dependency tracking and trimming strategy. [[Read more]](https://www.cs.sfu.ca/~keval/contents/papers/kickstarter-asplos17.pdf)
 
 ##  2. Getting Started
@@ -14,8 +15,8 @@ For asynchronous algorithms, GraphBolt incorporates KickStarter's light-weight d
 The `core/graphBolt/` folder contains the [GraphBolt Engine](#3-graphbolt-engine), the [KickStarter Engine](#4-kickstarter-engine), and our [Stream Ingestor](#5-stream-ingestor) module. The application/benchmark codes (e.g., PageRank, SSSP, etc.) can be found in the `apps/` directory. Useful helper files for generating the stream of changes (`tools/generators/streamGenerator.C`), creating the graph inputs in the correct format (`tools/converters/SNAPtoAdjConverter.C` - from ligra's codebase), comparing the output of the algorithms (`tools/output_comparators/`) are also provided.
 
 ### 2.2 Requirements
-- g++ >= 5.3.0 with support for Cilk Plus
-- [Mimalloc](https://github.com/microsoft/mimalloc) - A fast general purpose memory allocator.
+- g++ >= 5.3.0 with support for Cilk Plus.
+- [Mimalloc](https://github.com/microsoft/mimalloc) - A fast general purpose memory allocator from Microsoft (version >= 1.6).
     - Use the helper script `install_mimalloc.sh` to install mimalloc.
     - Update the LD_PRELOAD enviroment variable as specified by install_mimalloc.sh script.
 
