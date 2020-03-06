@@ -19,6 +19,10 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+#ifdef EDGEDATA
+#include "SSSP_edgeData.h"
+#endif
+
 #include "../core/common/utils.h"
 #include "../core/graphBolt/KickStarterEngine.h"
 #include "../core/main.h"
@@ -39,9 +43,13 @@ public:
   SsspInfo(uintV _source_vertex, long _weight_cap)
       : source_vertex(_source_vertex), weight_cap(_weight_cap) {}
 
+#ifdef EDGEDATA
+#else
   uint16_t getWeight(uintV u, uintV v) {
     return (uint16_t)((u + v) % weight_cap + 1);
   }
+#endif
+
   void copy(const SsspInfo &object) {
     source_vertex = object.source_vertex;
     weight_cap = object.weight_cap;
@@ -81,14 +89,19 @@ inline bool frontierVertex(const uintV &v, const GlobalInfoType &global_info) {
 // ======================================================================
 // EDGE FUNCTION
 // ======================================================================
-template <class VertexValueType, class GlobalInfoType>
+template <class VertexValueType, class EdgeDataType, class GlobalInfoType>
 inline bool
-edgeFunction(const uintV &u, const uintV &v, const VertexValueType &u_value,
-             VertexValueType &v_value, GlobalInfoType &global_info) {
+edgeFunction(const uintV &u, const uintV &v, const EdgeDataType &edge_weight,
+             const VertexValueType &u_value, VertexValueType &v_value,
+             GlobalInfoType &global_info) {
   if (u_value == MAX_DISTANCE) {
     return false;
   } else {
+#ifdef EDGEDATA
+    v_value = u_value + edge_weight.weight;
+#else
     v_value = u_value + global_info.getWeight(u, v);
+#endif
     return true;
   }
 }
@@ -100,8 +113,8 @@ edgeFunction(const uintV &u, const uintV &v, const VertexValueType &u_value,
 // updated graph violates monotonicity
 template <class VertexValueType, class GlobalInfoType>
 inline bool shouldPropagate(const VertexValueType &old_value,
-                                          const VertexValueType &new_value,
-                                          GlobalInfoType &global_info) {
+                            const VertexValueType &new_value,
+                            GlobalInfoType &global_info) {
   return (new_value > old_value);
 }
 

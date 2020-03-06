@@ -128,26 +128,26 @@ template <class vertex, class intT> struct getDegree {
 
 #define blocked_for(_i, _s, _e, _bsize, _body)                                 \
   {                                                                            \
-    intT _ss = _s;                                                             \
-    intT _ee = _e;                                                             \
-    intT _n = _ee - _ss;                                                       \
-    intT _l = nblocks(_n, _bsize);                                             \
-    parallel_for(intT _i = 0; _i < _l; _i++) {                                 \
-      intT _s = _ss + _i * (_bsize);                                           \
-      intT _e = min(_s + (_bsize), _ee);                                       \
+    long _ss = _s;                                                             \
+    long _ee = _e;                                                             \
+    long _n = _ee - _ss;                                                       \
+    long _l = nblocks(_n, _bsize);                                             \
+    parallel_for(long _i = 0; _i < _l; _i++) {                                 \
+      long _s = _ss + _i * (_bsize);                                           \
+      long _e = min(_s + (_bsize), _ee);                                       \
       _body                                                                    \
     }                                                                          \
   }
 
 #define blocked_for_withIncrement(_i, _s, _e, _bsize, _body, _incrementBy)     \
   {                                                                            \
-    intT _ss = _s;                                                             \
-    intT _ee = _e;                                                             \
-    intT _n = _ee - _ss;                                                       \
-    intT _l = nblocks(_n, _bsize);                                             \
-    parallel_for(intT _i = 0; _i < _l; _i += _incrementBy) {                   \
-      intT _s = _ss + _i * (_bsize);                                           \
-      intT _e = min(_s + (_bsize), _ee);                                       \
+    long _ss = _s;                                                             \
+    long _ee = _e;                                                             \
+    long _n = _ee - _ss;                                                       \
+    long _l = nblocks(_n, _bsize);                                             \
+    parallel_for(long _i = 0; _i < _l; _i += _incrementBy) {                   \
+      long _s = _ss + _i * (_bsize);                                           \
+      long _e = min(_s + (_bsize), _ee);                                       \
       _body                                                                    \
     }                                                                          \
   }
@@ -520,11 +520,11 @@ void remDuplicates(G &get_key, uintE *flags, long m, long n) {
   {                                                                            \
     if (_cond) {                                                               \
       {                                                                        \
-        parallel_for(size_t _i = _start; _i < _end; _i++) { _body }            \
+        parallel_for(long _i = _start; _i < _end; _i++) { _body }            \
       }                                                                        \
     } else {                                                                   \
       {                                                                        \
-        for (size_t _i = _start; _i < _end; _i++) {                            \
+        for (long _i = _start; _i < _end; _i++) {                            \
           _body                                                                \
         }                                                                      \
       }                                                                        \

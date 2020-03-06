@@ -1,11 +1,17 @@
 
-#INTT = -DLONG
-#INTE = -DEDGELONG
+# Enable this if number of vertices > 2^32 
+# INTV = -DLONG
+
+# Enable this if number of edges > 2^32 
+# INTE = -DEDGELONG
+
+# Enable this if not using synthetic weights
+# WEIGHTED = -DEDGEDATA
 
 #compilers
 $(info ************  Using CILK ************)
 PCC = g++-5
-PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -g -O3 -DCILK $(INTT) $(INTE)
+PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -g -O3 -DCILK $(INTV) $(INTE) $(WEIGHTED)
 LDFLAGS = -L../lib/mimalloc/out/release -lmimalloc
 
 #
@@ -16,8 +22,6 @@ COMMON=../core/common/binary_search.h ../core/common/bitsetscheduler.h ../core/c
 GRAPH= ../core/graph/graph.h ../core/graph/graphUtils.h ../core/graph/IO.h ../core/graph/vertex.h ../core/graph/vertexSubset.h
 
 GRAPHBOLT=../core/graphBolt/AdaptiveExecutor.h ../core/graphBolt/GraphBoltEngine_complex.h ../core/graphBolt/GraphBoltEngine.h ../core/graphBolt/GraphBoltEngine_simple.h ../core/graphBolt/ingestor.h ../core/graphBolt/KickStarterEngine.h
-
-GRAPHBOLT_DEBUG=../core/graphBolt/AdaptiveExecutor.h ../core/graphBolt/debug/GraphBoltEngine_complex_debug.h ../core/graphBolt/debug/GraphBoltEngine_debug.h ../core/graphBolt/debug/GraphBoltEngine_simple_debug.h ../core/graphBolt/ingestor.h ../core/graphBolt/KickStarterEngine.h ../core/graphBolt/ingestor_old.h
 
 OTHERS=../core/main.h
 

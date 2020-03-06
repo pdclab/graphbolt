@@ -4,7 +4,7 @@
 // Framework for Shared Memory", presented at Principles and Practice of
 // Parallel Programming, 2013.
 // Copyright (c) 2013 Julian Shun and Guy Blelloch
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the
 // "Software"), to deal in the Software without restriction, including
@@ -38,7 +38,9 @@
 using namespace std;
 
 typedef pair<uintE, uintE> intPair;
-typedef pair<uintE, pair<uintE, intE>> intTriple;
+#ifdef EDGEDATA
+typedef pair<uintE, pair<uintE, EdgeData *>> intWeights;
+#endif
 
 template <class E> struct pairFirstCmp {
   bool operator()(pair<uintE, E> a, pair<uintE, E> b) {
@@ -57,6 +59,16 @@ template <class IntType> struct pairBothCmp {
     return a.second < b.second;
   }
 };
+
+#ifdef EDGEDATA
+struct tripleBothCmp {
+  bool operator()(intWeights a, intWeights b) {
+    if (a.first != b.first)
+      return a.first < b.first;
+    return a.second.first < b.second.first;
+  }
+};
+#endif
 
 struct edgeBothCmp {
   bool operator()(edge a, edge b) {
@@ -187,6 +199,56 @@ uintE removeDuplicates(intPair *&array, uintE length, bool symmetric,
   return count;
 }
 
+#ifdef EDGEDATA
+uintE removeDuplicates(intWeights *&array, uintE length, bool symmetric,
+                       bool debugFlag) {
+  bool *flag = newAWithZero(bool, length);
+  uintE invalidCount = 0;
+  parallel_for(uintE i = 1; i < length; i++) {
+    if (array[i].first == array[i - 1].first &&
+        array[i].second.first == array[i - 1].second.first) {
+      flag[i] = true;
+      invalidCount++;
+      if (debugFlag) {
+        cerr << "INVALID: " << array[i].first << "\t" << array[i].second.first
+             << "\n";
+      }
+    }
+    if (symmetric && (array[i].first == array[i - 1].second.first) &&
+        (array[i].second.first == array[i - 1].first)) {
+      flag[i] = true;
+      invalidCount++;
+      if (debugFlag) {
+        cerr << "INVALID: " << array[i].first << "\t" << array[i].second.first
+             << "\n";
+      }
+    }
+  }
+
+  uintE count = 0;
+  intWeights *temp = newA(intWeights, length);
+  for (uintE i = 0; i < length; i++) {
+    if (!flag[i]) {
+      temp[count].first = array[i].first;
+      temp[count].second.first = array[i].second.first;
+      temp[count].second.second = array[i].second.second;
+
+      count++;
+    }
+  }
+
+  free(array);
+  array = temp;
+  free(flag);
+  if (debugFlag) {
+    cout << "COUNT: " << count << endl;
+    cout << "INVALID COUNT: " << invalidCount << endl;
+    cout << "LENGTH: " << length - invalidCount << endl;
+  }
+  return count;
+}
+#endif
+
 uintE removeDuplicates(edge *&array, uintE length, uintE maxLength,
                        bool symmetric, bool debugFlag) {
   bool *flag = newAWithZero(bool, length);
@@ -248,10 +310,10 @@ graph<vertex> readGraphFromFile(char *fname, bool isSymmetric, bool simpleFlag,
   words W;
   _seq<char> S = readStringFromFile(fname);
   W = stringToWords(S.A, S.n);
-#ifndef EDGEDATA
-  if (W.Strings[0] != (string) "AdjacencyGraph") {
-#else
+#ifdef EDGEDATA
   if (W.Strings[0] != (string) "WeightedAdjacencyGraph") {
+#else
+  if (W.Strings[0] != (string) "AdjacencyGraph") {
 #endif
     cout << "Bad input file" << endl;
     abort();
@@ -265,18 +327,18 @@ graph<vertex> readGraphFromFile(char *fname, bool isSymmetric, bool simpleFlag,
 
   // cout << "n :" << n << endl;
   // cout << "m :" << m << endl;
-#ifndef EDGEDATA
-  if (len != n + m + 2) {
-#else
+#ifdef EDGEDATA
   if (len != n + 2 * m + 2) {
+#else
+  if (len != n + m + 2) {
 #endif
     cout << "Length" << len << endl;
     cout << "Bad input file" << endl;
     abort();
   }
 
-  uintE *offsets = newA(uintE, n);
-  uintE *edges = newA(uintE, m);
+  intE *offsets = newA(intE, n);
+  uintV *edges = newA(uintV, m);
 #ifdef EDGEDATA
   EdgeData *edgeData = newA(EdgeData, m);
 #endif
@@ -296,9 +358,9 @@ graph<vertex> readGraphFromFile(char *fname, bool isSymmetric, bool simpleFlag,
   W.del(); // to deal with performance bug in malloc
   vertex *v = newA(vertex, n);
   {
-    parallel_for(uintT i = 0; i < n; i++) {
-      uintE o = offsets[i];
-      uintE l = ((i == n - 1) ? m : offsets[i + 1]) - offsets[i];
+    parallel_for(uintV i = 0; i < n; i++) {
+      intE o = offsets[i];
+      intE l = ((i == n - 1) ? m : offsets[i + 1]) - offsets[i];
       v[i].setOutDegree(l);
       v[i].setOutNeighbors(edges + o);
 #ifdef EDGEDATA
@@ -307,12 +369,12 @@ graph<vertex> readGraphFromFile(char *fname, bool isSymmetric, bool simpleFlag,
     }
   }
 
-  uintE *tOffsets;
+  intE *tOffsets;
 
   // TODO: ADD SYMMETRIC SUPPORT
   if (!isSymmetric) {
-    tOffsets = newA(uintE, n);
-    { parallel_for(unsigned long i = 0; i < n; i++) tOffsets[i] = INT_T_MAX; }
+    tOffsets = newA(intE, n);
+    { parallel_for(unsigned long i = 0; i < n; i++) tOffsets[i] = INT_E_MAX; }
 #ifdef EDGEDATA
     intWeights *temp = newA(intWeights, m);
 #else
@@ -320,8 +382,8 @@ graph<vertex> readGraphFromFile(char *fname, bool isSymmetric, bool simpleFlag,
 #endif
     {
       parallel_for(unsigned long i = 0; i < n; i++) {
-        uintE o = offsets[i];
-        for (uintE j = 0; j < v[i].getOutDegree(); j++) {
+        intE o = offsets[i];
+        for (intE j = 0; j < v[i].getOutDegree(); j++) {
 #ifdef EDGEDATA
           temp[o + j] = make_pair(v[i].getOutNeighbor(j),
                                   make_pair(i, v[i].getOutEdgeData(j)));
@@ -335,14 +397,14 @@ graph<vertex> readGraphFromFile(char *fname, bool isSymmetric, bool simpleFlag,
 #ifdef EDGEDATA
     quickSort(temp, m, tripleBothCmp());
 #else
-    quickSort(temp, m, pairBothCmp<uintE>());
+    quickSort(temp, m, pairBothCmp<intE>());
 #endif
     // remove duplicates
     if (simpleFlag) {
       m = removeDuplicates(temp, m, isSymmetric, debugFlag);
     }
     tOffsets[temp[0].first] = 0;
-    uintE *inEdges = newA(uintE, m);
+    uintV *inEdges = newA(uintV, m);
 #ifdef EDGEDATA
     inEdges[0] = temp[0].second.first;
     EdgeData *inEdgeData = newA(EdgeData, m);
@@ -370,7 +432,7 @@ graph<vertex> readGraphFromFile(char *fname, bool isSymmetric, bool simpleFlag,
 
     // fill in offsets of degree 0 vertices by taking closest non-zero
     // offset to the right
-    sequence::scanIBack(tOffsets, tOffsets, n, minF<uintE>(), (uintE)m);
+    sequence::scanIBack(tOffsets, tOffsets, n, minF<intE>(), (intE)m);
 
     {
       parallel_for(unsigned long i = 0; i < n; i++) {
@@ -384,25 +446,71 @@ graph<vertex> readGraphFromFile(char *fname, bool isSymmetric, bool simpleFlag,
       }
     }
 
-#ifndef EDGEDATA
-    AdjacencyRep<vertex> *mem =
-        new AdjacencyRep<vertex>(v, n, m, edges, inEdges, offsets, tOffsets);
-#else
+#ifdef EDGEDATA
     AdjacencyRep<vertex> *mem = new AdjacencyRep<vertex>(
         v, n, m, edges, inEdges, offsets, tOffsets, edgeData, inEdgeData);
+#else
+    AdjacencyRep<vertex> *mem =
+        new AdjacencyRep<vertex>(v, n, m, edges, inEdges, offsets, tOffsets);
 #endif
     return graph<vertex>(v, n, m, mem);
   } else {
-#ifndef EDGEDATA
-    AdjacencyRep<vertex> *mem =
-        new AdjacencyRep<vertex>(v, n, m, edges, NULL, offsets, NULL);
-#else
+#ifdef EDGEDATA
     AdjacencyRep<vertex> *mem = new AdjacencyRep<vertex>(
         v, n, m, edges, NULL, offsets, NULL, edgeData, NULL);
+#else
+    AdjacencyRep<vertex> *mem =
+        new AdjacencyRep<vertex>(v, n, m, edges, NULL, offsets, NULL);
 #endif
     return graph<vertex>(v, n, m, mem);
   }
 }
+
+#ifdef EDGEDATA
+template <class vertex>
+void printWeightedGraph(string outputFilePath, graph<vertex> G) {
+  cout << "Weighted graph" << outputFilePath << endl;
+  intWeights *pairedEdges = newA(intWeights, G.m);
+  cout << "M Edges: " << G.m << endl;
+  intE numEdgesFromDegree = 0;
+  for (uintV i = 0; i < G.n; i++) {
+    numEdgesFromDegree += G.V[i].getOutDegree();
+  }
+
+  if (G.m != numEdgesFromDegree) {
+    cout << "~~~~~~~~~Edges ARE NOT EQUAL!!!!~~~~~~~~~" << endl;
+    cout << "G.m: " << G.m << " NumEdges: " << numEdgesFromDegree << endl;
+    abort();
+  }
+
+  intE offset = 0;
+  for (uintV i = 0; i < G.n; i++) {
+    for (intE j = 0; j < G.V[i].getOutDegree(); j++) {
+      // file << i << " " << G.V[i].Neighbors[j] << " " << G.V[i].nghWeights[j]
+      // << "\n"; EdgeData *w = G.V[i].getOutEdgeData(j)->copyEdgeData();
+      pairedEdges[offset + j] = make_pair(
+          i, make_pair(G.V[i].getOutNeighbor(j), G.V[i].getOutEdgeData(j)));
+    }
+    offset += G.V[i].getOutDegree();
+  }
+  cout << "Offset: " << offset << endl;
+  quickSort(pairedEdges, offset, tripleBothCmp());
+
+  ofstream outputFile;
+  outputFile.open(outputFilePath, ios::out);
+  outputFile << setprecision(2);
+
+  for (uintE i = 0; i < offset; i++) {
+    std::string weight = (pairedEdges[i].second.second)->print();
+    outputFile << pairedEdges[i].first << " " << pairedEdges[i].second.first
+               << " " << weight << endl;
+    // outputFile << pairedEdges[i].first << " " << pairedEdges[i].second.first
+    // << " " << pairedEdges[i].second.second->print() << endl;
+  }
+  outputFile.close();
+  free(pairedEdges);
+}
+#endif
 
 template <class vertex>
 graph<vertex> readGraph(char *iFile, bool symmetric, bool isSimple,

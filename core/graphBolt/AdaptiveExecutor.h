@@ -100,7 +100,7 @@ public:
   inline void updateEdgesProcessed(int iter, graph<vertex> &t_graph,
                                    vertexSubset &frontier) {
     long edges_to_process =
-        sequence::plusReduceDegree(t_graph.V, frontier.d, t_graph.n);
+        sequence::plusReduceDegree(t_graph.V, frontier.d, (long)t_graph.n);
     active_edges[iter] = edges_to_process;
   }
 
