@@ -94,6 +94,8 @@ $   ./streamGenerator -edgeOperationsFile edgeOperationsFilepath -outputPipe out
 ```
 More details regarding the ingestor can be found in [Section 5](#5-stream-ingestor).
 
+Information regarding weighted graphs can be found in [Section 6].
+
 ## 3. GraphBolt Engine
 
 The GraphBolt engine provides Bulk Synchronous Parallel (BSP) guarantees while incrementally processing streaming graphs.
@@ -206,10 +208,33 @@ There are a few optional flags that can affect the behaviour and determine the v
 - `-simple`: Optional flag used to ensure that the input graph remains a simple graph (ie. no duplicate edges). The input graph is checked to remove all duplicate edges. Duplicate edges are not allowed within a batch and edge additions are checked to ensure that the edge to be added does not yet exist within the graph.
 - `-debug`: Optional flag to print the edges that were determined to be invalid.
 
-## 6. Acknowledgements
+## 6. Weighted Graph Input and Weighted Stream Input Format
+
+The initial input graph should be in the weighted adjacency graph format. With weights for the edges appearing after 
+
+```txt
+WeightedAdjacencyGraph
+3 # Vertex Offsets
+4
+0 
+...
+...
+2 #Edges
+2
+1
+0
+...
+... # Weights appear after edges 
+14.5123
+12.5
+1.2
+...
+```
+
+## 7. Acknowledgements
 Some utility functions from [Ligra](https://github.com/jshun/ligra) and [Problem Based Benchmark Suite](http://www.cs.cmu.edu/~pbbs/index.html) are used as part of this project. We are thankful to them for releasing their source code.
 
-## 7. Resources
+## 8. Resources
 Mugilan Mariappan and Keval Vora. [GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs](https://dl.acm.org/citation.cfm?id=3303974). European Conference on Computer Systems (**EuroSys'19**). Dresden, Germany, March 2019.
 
 Keval Vora, Rajiv Gupta and Guoqing Xu  [KickStarter: Fast and Accurate Computations on Streaming Graphs via Trimmed Approximations](https://dl.acm.org/citation.cfm?id=3093336.3037748). Architectural Support for Programming Languages and Operating Systems (**ASPLOS'17**). Xi'an, China, April 2017.

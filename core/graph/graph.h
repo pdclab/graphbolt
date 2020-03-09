@@ -1216,6 +1216,10 @@ template <class vertex> struct graph {
   }
 
   void printEdges(string outputFilePath) {
+#ifdef EDGEDATA
+    // TODO: Add support for printing weighted edges
+    return;
+#endif
     cout << "M Edges: " << m << endl;
     uintV numEdgesFromDegree = 0;
     for (uintV i = 0; i < n; i++) {
@@ -1226,14 +1230,6 @@ template <class vertex> struct graph {
       cout << "~~~~~~~~~Edges ARE NOT EQUAL!!!!~~~~~~~~~" << endl;
       cout << "m: " << m << " NumEdges: " << numEdgesFromDegree << endl;
       abort();
-    }
-
-    parallel_for(uintV i = 0; i < n; i++) {
-      quickSort(V[i].getOutNeighbors(), V[i].getOutDegree(), SimpleCmp<uintV>());
-    }
-
-    parallel_for(uintV i = 0; i < n; i++) {
-      quickSort(V[i].getInNeighbors(), V[i].getInDegree(), SimpleCmp<uintV>());
     }
 
     ofstream outputFile;

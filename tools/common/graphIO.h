@@ -1,4 +1,5 @@
-// Modifications Copyright (c) 2020 Mugilan Mariappan, Joanna Che and Keval Vora.
+// Modifications Copyright (c) 2020 Mugilan Mariappan, Joanna Che and Keval
+// Vora.
 //
 // This code is part of the Problem Based Benchmark Suite (PBBS)
 // Copyright (c) 2010 Guy Blelloch and the PBBS team
@@ -34,7 +35,7 @@
 using namespace std;
 
 typedef pair<long, long> intPair;
-typedef pair<long, pair<long, long>> intTriple;
+typedef pair<long, pair<long, char *>> intTriple;
 
 // **************************************************************
 //    EDGE ARRAY REPRESENTATION
@@ -58,6 +59,23 @@ struct edgeArray {
   edgeArray() {}
 };
 
+struct wghEdge {
+  uintV u;
+  uintV v;
+  char *w;
+  wghEdge(uintV f, uintV s, char* t) : u(f), v(s), w(t) {}
+};
+
+struct wghEdgeArray {
+  wghEdge *E;
+  uintV numRows;
+  uintV numCols;
+  long nonZeros;
+  void del() { free(E); }
+  wghEdgeArray(wghEdge *EE, uintV r, uintV c, long nz)
+      : E(EE), numRows(r), numCols(c), nonZeros(nz) {}
+  wghEdgeArray() {}
+};
 
 // **************************************************************
 //    ADJACENCY ARRAY REPRESENTATION
@@ -66,8 +84,20 @@ struct edgeArray {
 struct vertex {
   uintV *Neighbors;
   intE degree;
-  void del() { }
+  void del() {}
   vertex(uintV *N, intE d) : Neighbors(N), degree(d) {}
+};
+
+struct wghVertex {
+  uintV *Neighbors;
+  intE degree;
+  char **nghWeights;
+  void del() {
+    free(Neighbors);
+    free(nghWeights);
+  }
+  wghVertex(uintV *N, char **W, intE d)
+      : Neighbors(N), nghWeights(W), degree(d) {}
 };
 
 struct graph {
@@ -92,11 +122,45 @@ struct graph {
   }
 };
 
+struct wghGraph {
+  wghVertex *V;
+  uintV n;
+  long m;
+  long *offsets;
+  uintV *edges;
+  char **weights;
+
+  wghGraph(wghVertex *VV, intV nn, uintV mm, long* _offsets, uintV *_edges, char **_weights)
+      : V(VV), n(nn), m(mm), offsets(_offsets), edges(_edges), weights(_weights) {}
+
+  void del() {
+    if (offsets != NULL) {
+      free(offsets);
+    }
+    if (edges != NULL) {
+      free(edges);
+    }
+    if (weights != NULL) {
+      for (int i = 0; i < m; i++) {
+        free(weights[i]);
+      }
+      free(weights);
+    }
+    free(V);
+  }
+};
+
 // **************************************************************
 //    GRAPH UTILITIES
 // **************************************************************
 struct edgeCmp {
   bool operator()(edge e1, edge e2) {
+    return ((e1.u < e2.u) ? 1 : ((e1.u > e2.u) ? 0 : (e1.v < e2.v)));
+  }
+};
+
+struct wghEdgeCmp {
+  bool operator()(wghEdge e1, wghEdge e2) {
     return ((e1.u < e2.u) ? 1 : ((e1.u > e2.u) ? 0 : (e1.v < e2.v)));
   }
 };
@@ -143,8 +207,48 @@ edgeArray remDuplicates(edgeArray A) {
   return edgeArray(F, A.numRows, A.numCols, mm);
 }
 
+wghEdgeArray remDuplicates(wghEdgeArray A) {
+  long m = A.nonZeros;
+  wghEdge *E = newA(wghEdge, m);
+  {
+    parallel_for(long i = 0; i < m; i++) {
+      E[i].u = A.E[i].u;
+      E[i].v = A.E[i].v;
+      E[i].w = A.E[i].w;
+    }
+  }
+  quickSort(E, m, wghEdgeCmp());
+  long *flags = newA(long, m);
+  flags[0] = 1;
+  {
+    parallel_for(long i = 1; i < m; i++) {
+      if ((E[i].u != E[i - 1].u) || (E[i].v != E[i - 1].v))
+        flags[i] = 1;
+      else
+        flags[i] = 0;
+    }
+  }
+
+  long mm = sequence::plusScan(flags, flags, m);
+  wghEdge *F = newA(wghEdge, mm);
+  F[mm - 1] = E[m - 1];
+  {
+    parallel_for(long i = 0; i < m - 1; i++) {
+      if (flags[i] != flags[i + 1])
+        F[flags[i]] = E[i];
+    }
+  }
+  free(flags);
+  free(E);
+  return wghEdgeArray(F, A.numRows, A.numCols, mm);
+}
+
 struct nEQF {
   bool operator()(edge e) { return (e.u != e.v); }
+};
+
+struct nEQFWgh {
+  bool operator()(wghEdge e) { return (e.u != e.v); }
 };
 
 edgeArray makeSymmetric(edgeArray A) {
@@ -157,13 +261,28 @@ edgeArray makeSymmetric(edgeArray A) {
     F[i + mm].v = F[i].u;
   }
 
-  edgeArray R =
-      remDuplicates(edgeArray(F, A.numRows, A.numCols, 2 * mm));
+  edgeArray R = remDuplicates(edgeArray(F, A.numRows, A.numCols, 2 * mm));
   free(F);
 
   return R;
 }
 
+wghEdgeArray makeSymmetric(wghEdgeArray A) {
+  long m = A.nonZeros;
+  wghEdge *E = A.E;
+  wghEdge *F = newA(wghEdge, 2 * m);
+  long mm = sequence::filter(E, F, m, nEQFWgh());
+  parallel_for(long i = 0; i < mm; i++) {
+    F[i + mm].u = F[i].v;
+    F[i + mm].v = F[i].u;
+    F[i + mm].w = F[i].w;
+  }
+
+  wghEdgeArray R = remDuplicates(wghEdgeArray(F, A.numRows, A.numCols, 2 * mm));
+  free(F);
+
+  return R;
+}
 
 struct getuF {
   uintV operator()(edge e) { return e.u; }
@@ -179,8 +298,6 @@ template <class E> struct pairFirstCmp1 {
   bool operator()(pair<E, E> a, pair<E, E> b) { return a.first < b.first; }
 };
 
-
-
 graph graphFromEdges(edgeArray EA, bool makeSym) {
   edgeArray A;
   if (makeSym) {
@@ -195,9 +312,7 @@ graph graphFromEdges(edgeArray EA, bool makeSym) {
   long m = A.nonZeros;
   long n = max<long>(A.numCols, A.numRows);
 
-  
-  quickSort(A.E, m,
-            [](edge &val1, edge &val2) { return val1.u < val2.u; });
+  quickSort(A.E, m, [](edge &val1, edge &val2) { return val1.u < val2.u; });
 
   // long *offsets = newA(long, n * 2);
   long *offsets = newA(long, n);
@@ -234,6 +349,56 @@ graph graphFromEdges(edgeArray EA, bool makeSym) {
   EA.del();
   // free(offsets);
   return graph(v, n, m, offsets, outEdges);
+}
+
+wghGraph wghGraphFromWghEdges(wghEdgeArray EA, bool makeSym) {
+  wghEdgeArray A;
+  if (makeSym) {
+    cout << "Make symmetric .... \n";
+    A = makeSymmetric(EA);
+    cout << "Make symmetric done\n";
+  } else { // should have copy constructor
+    wghEdge *E = newA(wghEdge, EA.nonZeros);
+    parallel_for(long i = 0; i < EA.nonZeros; i++) E[i] = EA.E[i];
+    A = wghEdgeArray(E, EA.numRows, EA.numCols, EA.nonZeros);
+  }
+  long m = A.nonZeros;
+  long n = max<long>(A.numCols, A.numRows);
+  
+  quickSort(A.E, m, [](wghEdge &val1, wghEdge &val2) { return val1.u < val2.u; });
+  
+  long *offsets = newA(long, n);
+  parallel_for(long i = 0; i < n; i++) { offsets[i] = m; }
+
+  parallel_for(long i = 0; i < m - 1; i++) {
+    uintV currV = A.E[i].u;
+    uintV nextV = A.E[i + 1].u;
+    if (currV != nextV) {
+      offsets[nextV] = i + 1;
+    }
+  }
+  offsets[A.E[0].u] = 0;
+  sequence::scanIBack(offsets, offsets, (long)n, minF<long>(), (long)m);
+
+  uintV *outEdges = newA(uintV, m);
+  char **outWeights = newA(char *, m);
+  wghVertex *v = newA(wghVertex, n);
+
+  parallel_for(uintV i = 0; i < n; i++) {
+    long o = offsets[i];
+    long l = ((i == n - 1) ? m : offsets[i + 1]) - offsets[i];
+    v[i].degree = l;
+    v[i].Neighbors = outEdges + o;
+    v[i].nghWeights = outWeights + o;
+    for (long j = 0; j < l; j++) {
+      v[i].Neighbors[j] = A.E[o + j].v;
+      v[i].nghWeights[j] = A.E[o + j].w;
+    }
+  }
+  A.del();
+  EA.del();
+  // free(offsets);
+  return wghGraph(v, n, m, offsets, outEdges, outWeights);
 }
 
 // **************************************************************
@@ -381,7 +546,7 @@ int writeArrayToFile(string header, long *offsets, uintV *edges, long n, long m,
   if (!file.is_open()) {
     std::cout << "Unable to open file: " << fileName << std::endl;
     return 1;
-  }  
+  }
   file << header << endl;
   file << n << endl;
   file << m << endl;
@@ -427,6 +592,7 @@ namespace benchIO {
 using namespace std;
 
 string AdjGraphHeader = "AdjacencyGraph";
+string WghAdjGraphHeader = "WeightedAdjacencyGraph";
 
 int writeGraphToFile(graph G, char *fname) {
   long m = G.m;
@@ -440,7 +606,7 @@ int writeGraphToFile(graph G, char *fname) {
 
   for (long i = 0; i < n; i++) {
     uintV *O = edges + offsets[i];
-    
+
     vertex v = G.V[i];
     for (intE j = 0; j < v.degree; j++)
       O[j] = v.Neighbors[j];
@@ -452,12 +618,28 @@ int writeGraphToFile(graph G, char *fname) {
   return r;
 }
 
+int writeWghGraphToFile(wghGraph G, char *fname) {
+  ofstream file(fname, ios::out | ios::binary);
+  if (!file.is_open()) {
+    std::cout << "Unable to open file: " << fname << std::endl;
+    return 1;
+  }
+  file << WghAdjGraphHeader << endl;
+  file << G.n << endl;
+  file << G.m << endl;
+  writeArrayToStream(file, G.offsets, G.n);
+  writeArrayToStream(file, G.edges, G.m);
+  writeArrayToStream(file, G.weights, G.m);
+  file.close();
+  return 0;
+}
+
 edgeArray readSNAP(char *fname) {
   _seq<char> S = readStringFromFile(fname);
   char *S2 = newA(char, S.n);
   // ignore starting lines with '#' and find where to start in file
   unsigned long k = 0;
-  
+
   while (1) {
     if (S.A[k] == '#') {
       while (S.A[k++] != '\n')
@@ -492,6 +674,42 @@ edgeArray readSNAP(char *fname) {
   }
   unsigned long maxrc = max<uintV>(maxR, maxC) + 1;
   return edgeArray(E, maxrc, maxrc, n);
+}
+
+wghEdgeArray readWghSNAP(char *fname) {
+  _seq<char> S = readStringFromFile(fname);
+  char *S2 = newA(char, S.n);
+  // ignore starting lines with '#' and find where to start in file
+  unsigned long k = 0;
+  while (1) {
+    if (S.A[k] == '#') {
+      while (S.A[k++] != '\n')
+        continue;
+    }
+    if (k >= S.n || S.A[k] != '#')
+      break;
+  }
+  parallel_for(unsigned long i = 0; i < S.n - k; i++) S2[i] = S.A[k + i];
+  S.del();
+
+  words W = stringToWords(S2, S.n - k);
+  unsigned long n = W.m / 3;
+  wghEdge *E = newA(wghEdge, n);
+  {
+    parallel_for(unsigned long i = 0; i < n; i++) {
+      E[i] = wghEdge(atol(W.Strings[3 * i]), atol(W.Strings[3 * i + 1]),
+                     W.Strings[3 * i + 2]);
+    }
+  }
+
+  unsigned long maxR = 0;
+  unsigned long maxC = 0;
+  for (long i = 0; i < n; i++) {
+    maxR = max<uintV>(maxR, E[i].u);
+    maxC = max<uintV>(maxC, E[i].v);
+  }
+  unsigned long maxrc = max<uintV>(maxR, maxC) + 1;
+  return wghEdgeArray(E, maxrc, maxrc, n);
 }
 
 graph readGraphFromFile(char *fname) {

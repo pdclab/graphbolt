@@ -20,6 +20,8 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef EDGEDATA
+// NOTE: The edge data type header file should then be included as the first header
+// file at the top of the user program.
 #include "SSSP_edgeData.h"
 #endif
 
@@ -31,7 +33,7 @@
 #define MAX_DISTANCE 65535
 
 // ======================================================================
-// SSSPINFO 
+// SSSPINFO
 // ======================================================================
 class SsspInfo {
 public:

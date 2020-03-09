@@ -20,6 +20,8 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef EDGEDATA
+// NOTE: The edge data type header file should then be included as the first header
+// file at the top of the user program.
 #include "CF_edgeData.h"
 #endif
 
@@ -29,6 +31,7 @@
 #include "../core/main.h"
 #include <math.h>
 
+#define MOD_VAL_CF 0.00190000001000000000
 #define DEBUG_ROUND 100
 #define PARTITION_FILE_DEFAULT ""
 #define PARITION_INIT_3 1
@@ -116,7 +119,7 @@ public:
   uintV partition_flags_array_size;
 
   CFGlobalInfo()
-      : n(0), epsilon(0), random_init_seed(DEFAULT_SEED), mod_val(MOD_VAL),
+      : n(0), epsilon(0), random_init_seed(DEFAULT_SEED), mod_val(MOD_VAL_CF),
         use_random_init(false) {}
 
   CFGlobalInfo(uintV _n, double _epsilon, double _mod_val)
@@ -527,7 +530,7 @@ template <class vertex> void compute(graph<vertex> &G, commandLine config) {
   max_iters += 1;
   string partitions_file_path =
       config.getOptionValue("-partitionsFile", PARTITION_FILE_DEFAULT);
-  double mod_val = config.getOptionDoubleValue("-modVal", MOD_VAL);
+  double mod_val = config.getOptionDoubleValue("-modVal", MOD_VAL_CF);
   bool rand_init = config.getOption("-randInit");
   double lambda = config.getOptionDoubleValue("-lambda", 0.0001); // lambda
   double epsilon = 0.010000000000000000000000000d;

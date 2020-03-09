@@ -20,6 +20,8 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef EDGEDATA
+// NOTE: The edge data type header file should then be included as the first header
+// file at the top of the user program.
 #include "LP_edgeData.h"
 #endif
 
@@ -112,7 +114,6 @@ public:
     }
   }
 
-  // TODO : Verify if this is an acceptable way to do deep copy??
   LPInfo(LPInfo &object) {
     g = object.g;
     n = object.n;
@@ -440,11 +441,10 @@ void printAdditionalData(ofstream &output_file, const uintV &v,
 // COMPUTE FUNCTION
 // ======================================================================
 template <class vertex> void compute(graph<vertex> &G, commandLine config) {
-  // cout << setprecision(TIME_PRECISION);
   uintV n = G.n;
-  // cout << setprecision(VAL_PRECISION);
   int max_iters = config.getOptionLongValue("-maxIters", 10);
   max_iters += 1;
+  // NOTE : The seeds file is a mandatory argument. Each seed vertex is specified in a separate line in the file.  Refer "setSeedsFromFile()" fucntion for setting the seed vertices.
   string seeds_file_path =
       config.getOptionValue("-seedsFile", PARTITION_FILE_DEFAULT);
   double mod_val = config.getOptionDoubleValue("-modVal", MOD_VAL_LP);

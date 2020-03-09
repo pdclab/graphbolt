@@ -1,5 +1,6 @@
-// Modifications Copyright (c) 2020 Mugilan Mariappan, Joanna Che and Keval Vora.
-// 
+// Modifications Copyright (c) 2020 Mugilan Mariappan, Joanna Che and Keval
+// Vora.
+//
 // This code is part of the project "Ligra: A Lightweight Graph Processing
 // Framework for Shared Memory", presented at Principles and Practice of
 // Parallel Programming, 2013.
@@ -465,52 +466,6 @@ graph<vertex> readGraphFromFile(char *fname, bool isSymmetric, bool simpleFlag,
     return graph<vertex>(v, n, m, mem);
   }
 }
-
-#ifdef EDGEDATA
-template <class vertex>
-void printWeightedGraph(string outputFilePath, graph<vertex> G) {
-  cout << "Weighted graph" << outputFilePath << endl;
-  intWeights *pairedEdges = newA(intWeights, G.m);
-  cout << "M Edges: " << G.m << endl;
-  intE numEdgesFromDegree = 0;
-  for (uintV i = 0; i < G.n; i++) {
-    numEdgesFromDegree += G.V[i].getOutDegree();
-  }
-
-  if (G.m != numEdgesFromDegree) {
-    cout << "~~~~~~~~~Edges ARE NOT EQUAL!!!!~~~~~~~~~" << endl;
-    cout << "G.m: " << G.m << " NumEdges: " << numEdgesFromDegree << endl;
-    abort();
-  }
-
-  intE offset = 0;
-  for (uintV i = 0; i < G.n; i++) {
-    for (intE j = 0; j < G.V[i].getOutDegree(); j++) {
-      // file << i << " " << G.V[i].Neighbors[j] << " " << G.V[i].nghWeights[j]
-      // << "\n"; EdgeData *w = G.V[i].getOutEdgeData(j)->copyEdgeData();
-      pairedEdges[offset + j] = make_pair(
-          i, make_pair(G.V[i].getOutNeighbor(j), G.V[i].getOutEdgeData(j)));
-    }
-    offset += G.V[i].getOutDegree();
-  }
-  cout << "Offset: " << offset << endl;
-  quickSort(pairedEdges, offset, tripleBothCmp());
-
-  ofstream outputFile;
-  outputFile.open(outputFilePath, ios::out);
-  outputFile << setprecision(2);
-
-  for (uintE i = 0; i < offset; i++) {
-    std::string weight = (pairedEdges[i].second.second)->print();
-    outputFile << pairedEdges[i].first << " " << pairedEdges[i].second.first
-               << " " << weight << endl;
-    // outputFile << pairedEdges[i].first << " " << pairedEdges[i].second.first
-    // << " " << pairedEdges[i].second.second->print() << endl;
-  }
-  outputFile.close();
-  free(pairedEdges);
-}
-#endif
 
 template <class vertex>
 graph<vertex> readGraph(char *iFile, bool symmetric, bool isSimple,
