@@ -36,7 +36,7 @@
 using namespace std;
 
 template <class data> struct vertexSubsetData {
-  using S = tuple<uintE, data>;
+  using S = tuple<uintV, data>;
   using D = tuple<bool, data>;
 
   // An empty vertex set.
@@ -74,26 +74,26 @@ template <class data> struct vertexSubsetData {
   }
 
   // Sparse
-  inline uintE &vtx(const uintE &i) const { return std::get<0>(s[i]); }
-  inline data &vtxData(const uintE &i) const { return std::get<1>(s[i]); }
-  inline tuple<uintE, data> vtxAndData(const uintE &i) const { return s[i]; }
+  inline uintV &vtx(const uintV &i) const { return std::get<0>(s[i]); }
+  inline data &vtxData(const uintV &i) const { return std::get<1>(s[i]); }
+  inline tuple<uintV, data> vtxAndData(const uintV &i) const { return s[i]; }
 
   // Dense
-  inline bool isIn(const uintE &v) const { return std::get<0>(d[v]); }
-  inline data &ithData(const uintE &v) const { return std::get<1>(d[v]); }
+  inline bool isIn(const uintV &v) const { return std::get<0>(d[v]); }
+  inline data &ithData(const uintV &v) const { return std::get<1>(d[v]); }
 
-  // Returns (uintE) -> Maybe<tuple<vertex, vertex-data>>.
+  // Returns (uintV) -> Maybe<tuple<vertex, vertex-data>>.
   auto get_fn_repr() const {
-    std::function<Maybe<tuple<uintE, data>>(const uintE &)> fn;
+    std::function<Maybe<tuple<uintV, data>>(const uintV &)> fn;
     if (isDense) {
-      fn = [&](const uintE &v) -> Maybe<tuple<uintE, data>> {
-        auto ret = Maybe<tuple<uintE, data>>(make_tuple(v, std::get<1>(d[v])));
+      fn = [&](const uintV &v) -> Maybe<tuple<uintV, data>> {
+        auto ret = Maybe<tuple<uintV, data>>(make_tuple(v, std::get<1>(d[v])));
         ret.exists = std::get<0>(d[v]);
         return ret;
       };
     } else {
-      fn = [&](const uintE &i) -> Maybe<tuple<uintE, data>> {
-        return Maybe<tuple<uintE, data>>(s[i]);
+      fn = [&](const uintV &i) -> Maybe<tuple<uintV, data>> {
+        return Maybe<tuple<uintV, data>>(s[i]);
       };
     }
     return fn;
@@ -111,8 +111,8 @@ template <class data> struct vertexSubsetData {
   void toSparse() {
     if (s == NULL && m > 0) {
       auto f = make_in_imap<D>(
-          n, [&](size_t i) -> tuple<bool, data> { return d[i]; });
-      auto out = pbbs::pack_index_and_data<uintE, data>(f, n);
+          (long)n, [&](size_t i) -> tuple<bool, data> { return d[i]; });
+      auto out = pbbs::pack_index_and_data<uintV, data>(f, n);
       out.alloc = false;
       s = out.s;
       if (out.size() != m) {
@@ -150,16 +150,16 @@ template <class data> struct vertexSubsetData {
 
 // Specialized version where data = pbbs::empty.
 template <> struct vertexSubsetData<pbbs::empty> {
-  using S = uintE;
+  using S = uintV;
 
   // An empty vertex set.
   vertexSubsetData<pbbs::empty>(size_t _n)
       : n(_n), m(0), d(NULL), s(NULL), isDense(0) {}
 
   // A vertexSubset with a single vertex.
-  vertexSubsetData<pbbs::empty>(long _n, uintE v)
+  vertexSubsetData<pbbs::empty>(long _n, uintV v)
       : n(_n), m(1), d(NULL), isDense(0) {
-    s = newA(uintE, 1);
+    s = newA(uintV, 1);
     s[0] = v;
   }
 
@@ -169,8 +169,8 @@ template <> struct vertexSubsetData<pbbs::empty> {
 
   // A vertexSubset from array of vertex indices.
   vertexSubsetData<pbbs::empty>(long _n, long _m,
-                                tuple<uintE, pbbs::empty> *indices)
-      : n(_n), m(_m), s((uintE *)indices), d(NULL), isDense(0) {}
+                                tuple<uintV, pbbs::empty> *indices)
+      : n(_n), m(_m), s((uintV *)indices), d(NULL), isDense(0) {}
 
   // A vertexSubset from boolean array giving number of true values.
   vertexSubsetData<pbbs::empty>(long _n, long _m, bool *_d)
@@ -214,29 +214,29 @@ template <> struct vertexSubsetData<pbbs::empty> {
   }
 
   // Sparse
-  inline uintE &vtx(const uintE &i) const { return s[i]; }
-  inline pbbs::empty vtxData(const uintE &i) const { return pbbs::empty(); }
-  inline tuple<uintE, pbbs::empty> vtxAndData(const uintE &i) const {
+  inline uintV &vtx(const uintV &i) const { return s[i]; }
+  inline pbbs::empty vtxData(const uintV &i) const { return pbbs::empty(); }
+  inline tuple<uintV, pbbs::empty> vtxAndData(const uintV &i) const {
     return make_tuple(s[i], pbbs::empty());
   }
 
   // Dense
-  inline bool isIn(const uintE &v) const { return d[v]; }
-  inline pbbs::empty ithData(const uintE &v) const { return pbbs::empty(); }
+  inline bool isIn(const uintV &v) const { return d[v]; }
+  inline pbbs::empty ithData(const uintV &v) const { return pbbs::empty(); }
 
-  // Returns (uintE) -> Maybe<tuple<vertex, vertex-data>>.
+  // Returns (uintV) -> Maybe<tuple<vertex, vertex-data>>.
   auto get_fn_repr() const {
-    std::function<Maybe<tuple<uintE, pbbs::empty>>(const uintE &)> fn;
+    std::function<Maybe<tuple<uintV, pbbs::empty>>(const uintV &)> fn;
     if (isDense) {
-      fn = [&](const uintE &v) -> Maybe<tuple<uintE, pbbs::empty>> {
+      fn = [&](const uintV &v) -> Maybe<tuple<uintV, pbbs::empty>> {
         auto ret =
-            Maybe<tuple<uintE, pbbs::empty>>(make_tuple(v, pbbs::empty()));
+            Maybe<tuple<uintV, pbbs::empty>>(make_tuple(v, pbbs::empty()));
         ret.exists = d[v];
         return ret;
       };
     } else {
-      fn = [&](const uintE &i) -> Maybe<tuple<uintE, pbbs::empty>> {
-        return Maybe<tuple<uintE, pbbs::empty>>(
+      fn = [&](const uintV &i) -> Maybe<tuple<uintV, pbbs::empty>> {
+        return Maybe<tuple<uintV, pbbs::empty>>(
             make_tuple(s[i], pbbs::empty()));
       };
     }
@@ -256,8 +256,8 @@ template <> struct vertexSubsetData<pbbs::empty> {
     if (s == NULL && m > 0) {
       auto _d = d;
       auto f = [&](size_t i) { return _d[i]; };
-      auto f_in = make_in_imap<bool>(n, f);
-      auto out = pbbs::pack_index<uintE>(f_in);
+      auto f_in = make_in_imap<bool>((long)n, f);
+      auto out = pbbs::pack_index<uintV>(f_in);
       out.alloc = false;
       s = out.s;
       if (out.size() != m) {

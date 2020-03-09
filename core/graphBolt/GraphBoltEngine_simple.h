@@ -39,8 +39,8 @@ public:
       : GraphBoltEngine<vertex, AggregationValueType, VertexValueType,
                         GlobalInfoType>(_my_graph, _max_iter, _static_data,
                                         _use_lock, _config) {
-        use_source_contribution = true;
-                                        }
+    use_source_contribution = true;
+  }
 
   // ======================================================================
   // TEMPORARY STRUCTURES USED BY THE SIMPLE ENGINE
@@ -90,7 +90,7 @@ public:
         // ========== COPY - Prepare curr iteration ==========
         if (iter > 0) {
           // Copy the aggregate and actual value from iter-1 to iter
-          parallel_for(long v = 0; v < n; v++) {
+          parallel_for(uintV v = 0; v < n; v++) {
             vertex_values[iter][v] = vertex_values[iter - 1][v];
             aggregation_values[iter][v] = aggregation_values[iter - 1][v];
             delta[v] = aggregationValueIdentity<AggregationValueType>();
@@ -110,7 +110,7 @@ public:
         // ========== EDGE COMPUTATION ==========
         if ((use_source_contribution) && (iter == 1)) {
           // Compute source contribution for first iteration
-          parallel_for(long u = 0; u < n; u++) {
+          parallel_for(uintV u = 0; u < n; u++) {
             if (frontier_curr[u]) {
               // compute source change in contribution
               sourceChangeInContribution<AggregationValueType, VertexValueType,
@@ -122,17 +122,22 @@ public:
           }
         }
 
-        parallel_for(long u = 0; u < n; u++) {
+        parallel_for(uintV u = 0; u < n; u++) {
           if (frontier_curr[u]) {
             // check for propagate and retract for the vertices.
-            uintE outDegree = my_graph.V[u].getOutDegree();
+            intE outDegree = my_graph.V[u].getOutDegree();
             granular_for(j, 0, outDegree, (outDegree > 1024), {
-              uintT v = my_graph.V[u].getOutNeighbor(j);
+              uintV v = my_graph.V[u].getOutNeighbor(j);
               AggregationValueType contrib_change =
                   use_source_contribution
                       ? source_change_in_contribution[u]
                       : aggregationValueIdentity<AggregationValueType>();
-              bool ret = edgeFunction(u, v, vertex_values[iter - 1][u],
+#ifdef EDGEDATA
+              EdgeData *edge_data = my_graph.V[u].getOutEdgeData(j);
+#else
+              EdgeData *edge_data = &emptyEdgeData;
+#endif
+              bool ret = edgeFunction(u, v, *edge_data, vertex_values[iter - 1][u],
                                       contrib_change, global_info);
               if (ret) {
                 if (use_lock) {
@@ -154,7 +159,7 @@ public:
         }
 
         // ========== VERTEX COMPUTATION ==========
-        parallel_for(long v = 0; v < n; v++) {
+        parallel_for(uintV v = 0; v < n; v++) {
           // Reset frontier for next iteration
           frontier_curr[v] = 0;
           // Process all vertices affected by EdgeMap
@@ -238,7 +243,7 @@ public:
     }
 
     // Reset values before incremental computation
-    parallel_for(long v = 0; v < n; v++) {
+    parallel_for(uintV v = 0; v < n; v++) {
       frontier_curr[v] = 0;
       frontier_next[v] = 0;
       changed[v] = 0;
@@ -269,8 +274,8 @@ public:
 
     // ========== EDGE COMPUTATION - DIRECT CHANGES - for first iter ==========
     parallel_for(long i = 0; i < edge_additions.size; i++) {
-      long source = edge_additions.E[i].source;
-      long destination = edge_additions.E[i].destination;
+      uintV source = edge_additions.E[i].source;
+      uintV destination = edge_additions.E[i].destination;
 
       if (forceActivateVertexForIteration(source, 1, global_info_old)) {
         // Update frontier and changed values
@@ -296,9 +301,15 @@ public:
               vertex_values[0][source], global_info_old);
         }
 
-        // Do repropagate for edge source->destination.
-        bool ret = edgeFunction(source, destination, vertex_values[0][source],
-                                contrib_change, global_info);
+// Do repropagate for edge source->destination.
+#ifdef EDGEDATA
+        EdgeData *edge_data = edge_additions.E[i].edgeData;
+#else
+        EdgeData *edge_data = &emptyEdgeData;
+#endif
+        bool ret =
+            edgeFunction(source, destination, *edge_data, vertex_values[0][source],
+                         contrib_change, global_info);
         if (ret) {
           if (use_lock) {
             vertex_locks[destination].writeLock();
@@ -316,8 +327,8 @@ public:
     }
 
     parallel_for(long i = 0; i < edge_deletions.size; i++) {
-      long source = edge_deletions.E[i].source;
-      long destination = edge_deletions.E[i].destination;
+      uintV source = edge_deletions.E[i].source;
+      uintV destination = edge_deletions.E[i].destination;
 
       if (forceActivateVertexForIteration(source, 1, global_info_old)) {
         // Update frontier and changed values
@@ -342,9 +353,15 @@ public:
               vertex_values[0][source], global_info_old);
         }
 
-        // Do retract for edge source->destination
-        bool ret = edgeFunction(source, destination, vertex_values[0][source],
-                                contrib_change, global_info_old);
+// Do retract for edge source->destination
+#ifdef EDGEDATA
+        EdgeData *edge_data = edge_deletions.E[i].edgeData;
+#else
+        EdgeData *edge_data = &emptyEdgeData;
+#endif
+        bool ret =
+            edgeFunction(source, destination, *edge_data, vertex_values[0][source],
+                         contrib_change, global_info_old);
         if (ret) {
           if (use_lock) {
             vertex_locks[destination].writeLock();
@@ -385,7 +402,7 @@ public:
         vertex_value_old_next = temp1;
 
         if (iter <= converged_iteration) {
-          parallel_for(long v = 0; v < n; v++) {
+          parallel_for(uintV v = 0; v < n; v++) {
             vertex_value_old_next[v] = vertex_values[iter][v];
           }
         } else {
@@ -397,7 +414,7 @@ public:
       // ========== EDGE COMPUTATION - TRANSITIVE CHANGES ==========
       if ((use_source_contribution) && (iter == 1)) {
         // Compute source contribution for first iteration
-        parallel_for(long u = 0; u < n; u++) {
+        parallel_for(uintV u = 0; u < n; u++) {
           if (frontier_curr[u]) {
             // compute source change in contribution
             AggregationValueType contrib_change =
@@ -418,20 +435,25 @@ public:
         }
       }
 
-      parallel_for(long u = 0; u < n; u++) {
+      parallel_for(uintV u = 0; u < n; u++) {
         if (frontier_curr[u]) {
           // check for propagate and retract for the vertices.
-          uintE outDegree = my_graph.V[u].getOutDegree();
+          intE outDegree = my_graph.V[u].getOutDegree();
 
           granular_for(i, 0, outDegree, (outDegree > 1024), {
-            uintT v = my_graph.V[u].getOutNeighbor(i);
+            uintV v = my_graph.V[u].getOutNeighbor(i);
             bool ret = false;
             AggregationValueType contrib_change =
                 use_source_contribution
                     ? source_change_in_contribution[u]
                     : aggregationValueIdentity<AggregationValueType>();
 
-            ret = edgeFunction(u, v, vertex_values[iter - 1][u], contrib_change,
+#ifdef EDGEDATA
+            EdgeData *edge_data = my_graph.V[u].getOutEdgeData(i);
+#else
+            EdgeData *edge_data = &emptyEdgeData;
+#endif
+            ret = edgeFunction(u, v, *edge_data, vertex_values[iter - 1][u], contrib_change,
                                global_info);
 
             if (ret) {
@@ -456,7 +478,7 @@ public:
 
       // ========== VERTEX COMPUTATION  ==========
       bool use_delta_next_iteration = shouldUseDelta(iter + 1);
-      parallel_for(long v = 0; v < n; v++) {
+      parallel_for(uintV v = 0; v < n; v++) {
         // changed vertices need to be processed
         frontier_curr[v] = 0;
         if ((v >= n_old) && (changed[v] == false)) {
@@ -531,8 +553,8 @@ public:
       // ========== EDGE COMPUTATION - DIRECT CHANGES - for next iter ==========
       bool has_direct_changes = false;
       parallel_for(long i = 0; i < edge_additions.size; i++) {
-        long source = edge_additions.E[i].source;
-        long destination = edge_additions.E[i].destination;
+        uintV source = edge_additions.E[i].source;
+        uintV destination = edge_additions.E[i].destination;
         AggregationValueType contrib_change;
 
         if (isChanged(vertex_value_old_curr[source],
@@ -550,9 +572,15 @@ public:
                 source, contrib_change, vertexValueIdentity<VertexValueType>(),
                 vertex_value_old_next[source], global_info_old);
           }
-          // Do repropagate for edge source->destination.
-          bool ret = edgeFunction(source, destination, vertex_values[0][source],
-                                  contrib_change, global_info);
+// Do repropagate for edge source->destination.
+#ifdef EDGEDATA
+          EdgeData *edge_data = edge_additions.E[i].edgeData;
+#else
+          EdgeData *edge_data = &emptyEdgeData;
+#endif
+          bool ret = edgeFunction(source, destination, *edge_data,
+                                  vertex_values[0][source], contrib_change,
+                                  global_info);
 
           if (ret) {
             if (use_lock) {
@@ -573,8 +601,8 @@ public:
       }
 
       parallel_for(long i = 0; i < edge_deletions.size; i++) {
-        long source = edge_deletions.E[i].source;
-        long destination = edge_deletions.E[i].destination;
+        uintV source = edge_deletions.E[i].source;
+        uintV destination = edge_deletions.E[i].destination;
         AggregationValueType contrib_change;
 
         if (isChanged(vertex_value_old_curr[source],
@@ -593,8 +621,14 @@ public:
                 source, contrib_change, vertexValueIdentity<VertexValueType>(),
                 vertex_value_old_next[source], global_info_old);
           }
-          bool ret = edgeFunction(source, destination, vertex_values[0][source],
-                                  contrib_change, global_info);
+#ifdef EDGEDATA
+          EdgeData *edge_data = edge_deletions.E[i].edgeData;
+#else
+          EdgeData *edge_data = &emptyEdgeData;
+#endif
+          bool ret = edgeFunction(source, destination, *edge_data,
+                                  vertex_values[0][source], contrib_change,
+                                  global_info);
 
           if (ret) {
             if (use_lock) {

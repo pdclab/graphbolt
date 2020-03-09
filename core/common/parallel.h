@@ -102,23 +102,6 @@ static void setWorkers(int n) {}
 
 #include <limits.h>
 
-#if defined(LONG)
-typedef long intT;
-typedef long long intTL;
-typedef unsigned long uintT;
-#define INT_T_MAX LONG_MAX
-#define UINT_T_MAX ULONG_MAX
-#define INT_D_MAX ULONG_MAX
-#define UINT_D_MAX ULONG_MAX
-#else
-typedef int intT;
-typedef long intTL;
-typedef unsigned int uintT;
-#define INT_T_MAX INT_MAX
-#define UINT_T_MAX UINT_MAX
-#define INT_D_MAX INT_MAX
-#define UINT_D_MAX ULONG_MAX
-#endif
 
 #if defined(LONG)
 typedef int64_t intV;
@@ -135,6 +118,7 @@ typedef uint32_t uintV;
 // edges store 32-bit quantities unless EDGELONG is defined
 typedef int64_t intEE;
 typedef uint64_t uintEE;
+
 #if defined(EDGELONG)
 typedef int64_t intE;
 typedef uint64_t uintE;

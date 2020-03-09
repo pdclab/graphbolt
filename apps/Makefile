@@ -1,14 +1,20 @@
+# Enable this if the input graph has weights. Disable this if you want to use synthetically generated weights.
+ifdef WEIGHTED
+EDGEDATA = -DEDGEDATA
+endif
 
-#INTT = -DLONG
-#INTE = -DEDGELONG
+# Enable this if number of vertices > 2^32 
+ifdef LONGVERTEXCOUNT
+INTV = -DLONG
+endif
+
+INTE = -DEDGELONG
 
 #compilers
 $(info ************  Using CILK ************)
-PCC = g++-5
-PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -g -O3 -DCILK $(INTT) $(INTE)
-LDFLAGS = -L../lib/mimalloc/out/release -lmimalloc
-
-#
+PCC = g++
+PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -g -O3 -DCILK $(INTV) $(INTE) $(EDGEDATA)
+LDFLAGS = -L../lib/mimalloc/out/release -lmimalloc 
 
 # dependencies
 COMMON=../core/common/binary_search.h ../core/common/bitsetscheduler.h ../core/common/blockRadixSort.h ../core/common/densebitset.h ../core/common/gettime.h ../core/common/index_map.h ../core/common/matrix.h ../core/common/maybe.h ../core/common/parallel.h ../core/common/parseCommandLine.h ../core/common/transpose.h ../core/common/quickSort.h ../core/common/rwlock.h ../core/common/sequence.h ../core/common/utils.h
@@ -16,8 +22,6 @@ COMMON=../core/common/binary_search.h ../core/common/bitsetscheduler.h ../core/c
 GRAPH= ../core/graph/graph.h ../core/graph/graphUtils.h ../core/graph/IO.h ../core/graph/vertex.h ../core/graph/vertexSubset.h
 
 GRAPHBOLT=../core/graphBolt/AdaptiveExecutor.h ../core/graphBolt/GraphBoltEngine_complex.h ../core/graphBolt/GraphBoltEngine.h ../core/graphBolt/GraphBoltEngine_simple.h ../core/graphBolt/ingestor.h ../core/graphBolt/KickStarterEngine.h
-
-GRAPHBOLT_DEBUG=../core/graphBolt/AdaptiveExecutor.h ../core/graphBolt/debug/GraphBoltEngine_complex_debug.h ../core/graphBolt/debug/GraphBoltEngine_debug.h ../core/graphBolt/debug/GraphBoltEngine_simple_debug.h ../core/graphBolt/ingestor.h ../core/graphBolt/KickStarterEngine.h ../core/graphBolt/ingestor_old.h
 
 OTHERS=../core/main.h
 

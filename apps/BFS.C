@@ -27,7 +27,7 @@
 #define MAX_PARENT 4294967295
 
 // ======================================================================
-// BFSINFO 
+// BFSINFO
 // ======================================================================
 class BfsInfo {
 public:
@@ -35,12 +35,9 @@ public:
 
   BfsInfo() : source_vertex(0) {}
 
-  BfsInfo(uintV _source_vertex)
-      : source_vertex(_source_vertex) {}
+  BfsInfo(uintV _source_vertex) : source_vertex(_source_vertex) {}
 
-  void copy(const BfsInfo &object) {
-    source_vertex = object.source_vertex;
-  }
+  void copy(const BfsInfo &object) { source_vertex = object.source_vertex; }
 
   void processUpdates(edgeArray &edge_additions, edgeArray &edge_deletions) {}
 
@@ -76,10 +73,11 @@ inline bool frontierVertex(const uintV &v, const GlobalInfoType &global_info) {
 // ======================================================================
 // EDGE FUNCTION
 // ======================================================================
-template <class VertexValueType, class GlobalInfoType>
+template <class VertexValueType, class EdgeDataType, class GlobalInfoType>
 inline bool
-edgeFunction(const uintV &u, const uintV &v, const VertexValueType &u_value,
-             VertexValueType &v_value, GlobalInfoType &global_info) {
+edgeFunction(const uintV &u, const uintV &v, const EdgeDataType &edge_weight,
+             const VertexValueType &u_value, VertexValueType &v_value,
+             GlobalInfoType &global_info) {
   if (u_value == 0) {
     return false;
   } else {
@@ -95,8 +93,8 @@ edgeFunction(const uintV &u, const uintV &v, const VertexValueType &u_value,
 // updated graph violates monotonicity
 template <class VertexValueType, class GlobalInfoType>
 inline bool shouldPropagate(const VertexValueType &old_value,
-                                          const VertexValueType &new_value,
-                                          GlobalInfoType &global_info) {
+                            const VertexValueType &new_value,
+                            GlobalInfoType &global_info) {
   return (old_value == 1) && (new_value == 0);
 }
 
