@@ -30,14 +30,6 @@
 #define MAX_LEVEL 65535
 #define MAX_PARENT 4294967295
 
-#ifdef EDGEDATA
-#else
-struct EmptyEdgeData{};
-typedef EmptyEdgeData EdgeData;
-
-EdgeData emptyEdgeData;
-#endif
-
 // ======================================================================
 // VertexValue INITIALIZATION
 // ======================================================================
@@ -61,9 +53,8 @@ inline bool frontierVertex(const uintV &v, const GlobalInfoType &global_info);
 // For an edge (u, v), compute v's value based on u's value.
 // Return false if the value from u should not be use to update the value of v.
 // Return true otherwise.
-template <class VertexValueType, class EdgeDataType, class GlobalInfoType>
+template <class VertexValueType, class GlobalInfoType>
 inline bool edgeFunction(const uintV &u, const uintV &v,
-                         const EdgeDataType &edge_data,
                          const VertexValueType &u_value,
                          VertexValueType &v_value, GlobalInfoType &global_info);
 
@@ -284,7 +275,7 @@ public:
       output_file.open(curr_output_file_path, ios::out);
       output_file << fixed;
       output_file << setprecision(VAL_PRECISION2);
-      for (uintV v = 0; v < n; v++) {
+      for (long v = 0; v < n; v++) {
         output_file << v << " " << my_graph.V[v].getInDegree() << " "
                     << my_graph.V[v].getOutDegree() << " ";
         printAdditionalData(output_file, v, global_info);
@@ -310,7 +301,7 @@ public:
     full_timer.start();
     active_vertices_bitset.reset();
 
-    parallel_for(uintV v = 0; v < n; v++) {
+    parallel_for(long v = 0; v < n; v++) {
       if (frontierVertex(v, global_info)) {
         active_vertices_bitset.schedule(v);
         dependency_data[v].level = 0;
@@ -323,15 +314,13 @@ public:
     printOutput();
   }
 
-  // TODO : Write a lock based reduce function. Add functionality to use the
-  // lock based reduce function depending on the size of DependendencyData              
-  bool reduce(const uintV &u, const uintV &v, const EdgeData &edge_data,
+  // TODO : Write a lock based reduce function. Add functionality to use the lock based reduce function depending on the size of DependendencyData
+  bool reduce(const uintV &u, const uintV &v,
               const DependencyData<VertexValueType> &u_data,
               DependencyData<VertexValueType> &v_data, GlobalInfoType &info) {
     DependencyData<VertexValueType> newV, oldV;
     DependencyData<VertexValueType> incoming_value_curr = u_data;
-
-    bool ret = edgeFunction(u, v, edge_data, incoming_value_curr.value, newV.value, info);
+    bool ret = edgeFunction(u, v, incoming_value_curr.value, newV.value, info);
     if (!ret) {
       return false;
     }
@@ -358,15 +347,11 @@ public:
       parallel_for(uintV u = 0; u < n; u++) {
         if (active_vertices_bitset.isScheduled(u)) {
           // process all its outNghs
-          intE outDegree = my_graph.V[u].getOutDegree();
+          uintE outDegree = my_graph.V[u].getOutDegree();
           granular_for(i, 0, outDegree, (outDegree > 1024), {
             uintV v = my_graph.V[u].getOutNeighbor(i);
-#ifdef EDGEDATA
-            EdgeData *edge_data = my_graph.V[u].getOutEdgeData(i);
-#else
-            EdgeData *edge_data = &emptyEdgeData;
-#endif
-            bool ret = reduce(u, v, *edge_data, dependency_data[u], dependency_data[v],
+
+            bool ret = reduce(u, v, dependency_data[u], dependency_data[v],
                               global_info);
             if (ret) {
               active_vertices_bitset.schedule(v);
@@ -390,7 +375,7 @@ public:
 
     // Reset values before incremental computation
     active_vertices_bitset.reset();
-    parallel_for(uintV v = 0; v < n; v++) {
+    parallel_for(long v = 0; v < n; v++) {
       frontier[v] = 0;
       // all_affected_vertices is used only for switching purposes
       all_affected_vertices[v] = 0;
@@ -411,8 +396,8 @@ public:
     // ======================================================================
     bool frontier_not_empty = false;
     parallel_for(long i = 0; i < edge_deletions.size; i++) {
-      uintV source = edge_deletions.E[i].source;
-      uintV destination = edge_deletions.E[i].destination;
+      long source = edge_deletions.E[i].source;
+      long destination = edge_deletions.E[i].destination;
       if (dependency_data[destination].parent == source) {
         dependency_data[destination].reset();
         initializeVertexValue<VertexValueType, GlobalInfoType>(
@@ -434,19 +419,14 @@ public:
       active_vertices_bitset.newIteration();
       parallel_for(uintV v = 0; v < n; v++) {
         if (active_vertices_bitset.isScheduled(v)) {
-          intE inDegree = my_graph.V[v].getInDegree();
+          uintE inDegree = my_graph.V[v].getInDegree();
           DependencyData<VertexValueType> v_value_old = dependency_data[v];
-          parallel_for(intE i = 0; i < inDegree; i++) {
+          parallel_for(uintE i = 0; i < inDegree; i++) {
             uintV u = my_graph.V[v].getInNeighbor(i);
             // Process inEdges with smallerLevel than currentVertex.
             if (dependency_data_old[v].level > dependency_data_old[u].level) {
-#ifdef EDGEDATA
-              EdgeData *edge_data = my_graph.V[v].getInEdgeData(i);
-#else
-              EdgeData *edge_data = &emptyEdgeData;
-#endif
               bool ret =
-                  reduce(u, v, *edge_data, dependency_data[u], v_value_old, global_info);
+                  reduce(u, v, dependency_data[u], v_value_old, global_info);
             }
           }
           // Evaluate the shouldReduce condition.. See if the new value is
@@ -464,9 +444,9 @@ public:
         if (changed[v]) {
           changed[v] = 0;
           // Push down in dependency tree
-          intE outDegree = my_graph.V[v].getOutDegree();
+          uintE outDegree = my_graph.V[v].getOutDegree();
           DependencyData<VertexValueType> v_value = dependency_data[v];
-          parallel_for(intE i = 0; i < outDegree; i++) {
+          parallel_for(uintE i = 0; i < outDegree; i++) {
             uintV w = my_graph.V[v].getOutNeighbor(i);
             // Push the changes down only to its outNghs in the dependency
             // tree
@@ -481,12 +461,7 @@ public:
               newV = dependency_data[w];
 
               // Update w's value based on u's value if needed
-#ifdef EDGEDATA
-              EdgeData *edge_data = my_graph.V[v].getOutEdgeData(i);
-#else
-              EdgeData *edge_data = &emptyEdgeData;
-#endif
-              bool ret = reduce(v, w, *edge_data, v_value, newV, global_info);
+              bool ret = reduce(v, w, v_value, newV, global_info);
 
               if ((oldV.value != newV.value) || (oldV.level != newV.level)) {
                 dependency_data[w] = newV;
@@ -513,16 +488,11 @@ public:
     // Pull once for all the affected vertices
     parallel_for(uintV v = 0; v < n; v++) {
       if (all_affected_vertices[v] == 1) {
-        intE inDegree = my_graph.V[v].getInDegree();
-        parallel_for(intE i = 0; i < inDegree; i++) {
+        uintE inDegree = my_graph.V[v].getInDegree();
+        parallel_for(uintE i = 0; i < inDegree; i++) {
           uintV u = my_graph.V[v].getInNeighbor(i);
-#ifdef EDGEDATA
-          EdgeData *edge_data = my_graph.V[v].getInEdgeData(i);
-#else
-          EdgeData *edge_data = &emptyEdgeData;
-#endif
           bool ret =
-              reduce(u, v, *edge_data, dependency_data[u], dependency_data[v], global_info);
+              reduce(u, v, dependency_data[u], dependency_data[v], global_info);
         }
       }
     }
@@ -530,15 +500,10 @@ public:
     // ======================================================================
     // PHASE 4 - Process additions
     // ======================================================================
-    parallel_for(long i = 0; i < edge_additions.size; i++) {
+    parallel_for(uintE i = 0; i < edge_additions.size; i++) {
       uintV source = edge_additions.E[i].source;
       uintV destination = edge_additions.E[i].destination;
-#ifdef EDGEDATA
-      EdgeData *edge_data = edge_additions.E[i].edgeData;
-#else
-      EdgeData *edge_data = &emptyEdgeData;
-#endif
-      bool ret = reduce(source, destination, *edge_data, dependency_data[source],
+      bool ret = reduce(source, destination, dependency_data[source],
                         dependency_data[destination], global_info);
       if (ret) {
         all_affected_vertices[destination] = true;

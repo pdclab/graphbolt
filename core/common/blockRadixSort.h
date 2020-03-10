@@ -289,4 +289,26 @@ template <class E, class F> void iSortBottomUp(E *A, long n, long m, F f) {
 }
 }; // namespace intSort
 
+static void integerSort(uintT *A, long n) {
+  long maxV = sequence::reduce(A, n, maxF<uintT>());
+  intSort::iSort(A, n, maxV + 1, identityF<uintT>());
+}
+
+static void integerSort(uintT *A, long n, char *s) {
+  long maxV = sequence::reduce(A, n, maxF<uintT>());
+  intSort::iSort(A, n, maxV + 1, s, identityF<uintT>());
+}
+
+template <class T> void integerSort(pair<uintT, T> *A, long n) {
+  long maxV =
+      sequence::mapReduce<uintT>(A, n, maxF<uintT>(), firstF<uintT, T>());
+  intSort::iSort(A, n, maxV + 1, firstF<uintT, T>());
+}
+
+template <class T> void integerSort(pair<uintT, T> *A, long n, char *s) {
+  long maxV =
+      sequence::mapReduce<uintT>(A, n, maxF<uintT>(), firstF<uintT, T>());
+  intSort::iSort(A, n, maxV + 1, s, firstF<uintT, T>());
+}
+
 #endif

@@ -30,18 +30,18 @@
 class PageRankInfo {
 public:
   // Should I just use vectors for this?
-  uintV n;
+  long n;
   double epsilon;
   double damping;
   long *out_degrees;
 
   PageRankInfo() : n(0), epsilon(0), damping(0), out_degrees(nullptr) {}
 
-  PageRankInfo(uintV _n, double _epsilon, double _damping)
+  PageRankInfo(long _n, double _epsilon, double _damping)
       : n(_n), epsilon(_epsilon), damping(_damping) {
     if (n > 0) {
       out_degrees = newA(long, n);
-      parallel_for(uintV i = 0; i < n; i++) { out_degrees[i] = 0; }
+      parallel_for(long i = 0; i < n; i++) { out_degrees[i] = 0; }
     }
   }
 
@@ -57,7 +57,7 @@ public:
       }
     }
     long min_n = std::min(object.n, n);
-    parallel_for(uintV i = 0; i < min_n; i++) {
+    parallel_for(long i = 0; i < min_n; i++) {
       out_degrees[i] = object.out_degrees[i];
     }
     epsilon = object.epsilon;
@@ -72,33 +72,33 @@ public:
   void processUpdates(edgeArray &edge_additions, edgeArray &edge_deletions) {
     // Increase out_degrees array size
     if (edge_additions.maxVertex >= n) {
-      uintV n_old = n;
+      long n_old = n;
       n = edge_additions.maxVertex + 1;
       out_degrees = renewA(long, out_degrees, n);
-      parallel_for(uintV i = n_old; i < n; i++) { out_degrees[i] = 0; }
+      parallel_for(long i = n_old; i < n; i++) { out_degrees[i] = 0; }
     }
 
     parallel_for(long i = 0; i < edge_additions.size; i++) {
-      uintV source = edge_additions.E[i].source;
-      uintV destination = edge_additions.E[i].destination;
-      writeAdd(&out_degrees[source], (long)1);
+      long source = edge_additions.E[i].source;
+      long destination = edge_additions.E[i].destination;
+      writeAdd(&out_degrees[source], long(1));
     }
     parallel_for(long i = 0; i < edge_deletions.size; i++) {
-      uintV source = edge_deletions.E[i].source;
-      uintV destination = edge_deletions.E[i].destination;
-      writeAdd(&out_degrees[source], (long)-1);
+      long source = edge_deletions.E[i].source;
+      long destination = edge_deletions.E[i].destination;
+      writeAdd(&out_degrees[source], long(-1));
     }
   }
 
   void cleanup() {}
 
-  inline long getOutDegree(const uintV &v) {
+  inline long getOutDegree(const long &v) {
     return (v < n) ? out_degrees[v] : 0;
   }
 };
 
 // ======================================================================
-// AGGREGATEVALUE AND VERTEXVALUE INITIALIZATION
+// AGGREGATEVALUE AND VERTEXVALUE INITIALIZATION 
 // ======================================================================
 double initial_aggregation_value = 0;
 double initial_vertex_value = 1;
@@ -106,14 +106,14 @@ double aggregation_value_identity = 0;
 double vertex_value_identity = 0;
 template <class AggregationValueType, class GlobalInfoType>
 inline void
-initializeAggregationValue(const uintV &v,
+initializeAggregationValue(const long &v,
                            AggregationValueType &v_aggregation_value,
                            const GlobalInfoType &global_info) {
   v_aggregation_value = initial_aggregation_value;
 }
 
 template <class VertexValueType, class GlobalInfoType>
-inline void initializeVertexValue(const uintV &v,
+inline void initializeVertexValue(const long &v,
                                   VertexValueType &v_vertex_value,
                                   const GlobalInfoType &global_info) {
   v_vertex_value = initial_vertex_value;
@@ -131,7 +131,7 @@ template <class VertexValueType> inline VertexValueType &vertexValueIdentity() {
 // ACTIVATE VERTEX/COMPUTE VERTEX FOR A GIVEN ITERATION
 // ======================================================================
 template <class GlobalInfoType>
-inline bool forceActivateVertexForIteration(const uintV &v, int iter,
+inline bool forceActivateVertexForIteration(const long &v, int iter,
                                             const GlobalInfoType &global_info) {
   if (iter == 1) {
     return true;
@@ -141,7 +141,7 @@ inline bool forceActivateVertexForIteration(const uintV &v, int iter,
 }
 
 template <class GlobalInfoType>
-inline bool forceComputeVertexForIteration(const uintV &v, int iter,
+inline bool forceComputeVertexForIteration(const long &v, int iter,
                                            const GlobalInfoType &global_info) {
   if (iter == 1) {
     return true;
@@ -194,7 +194,7 @@ removeFromAggregationAtomic(const AggregationValueType &incoming_value,
 // ======================================================================
 template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
-inline void computeFunction(const uintV &v,
+inline void computeFunction(const long &v,
                             const AggregationValueType &aggregation_value,
                             const VertexValueType &vertex_value_curr,
                             VertexValueType &vertex_value_next,
@@ -205,8 +205,8 @@ inline void computeFunction(const uintV &v,
 
 template <class VertexValueType, class GlobalInfoType>
 inline bool isChanged(const VertexValueType &value_curr,
-                      const VertexValueType &value_next,
-                      GlobalInfoType &global_info) {
+                         const VertexValueType &value_next,
+                         GlobalInfoType &global_info) {
   return (fabs(value_next - value_curr) > global_info.epsilon);
 }
 
@@ -216,7 +216,7 @@ inline bool isChanged(const VertexValueType &value_curr,
 template <class AggregationValueType, class VertexValueType,
           class StaticInfoType>
 inline void sourceChangeInContribution(
-    const uintV &v, AggregationValueType &v_change_in_contribution,
+    const long &v, AggregationValueType &v_change_in_contribution,
     const VertexValueType &v_value_prev, const VertexValueType &v_value_curr,
     StaticInfoType &global_info) {
   v_change_in_contribution =
@@ -225,10 +225,9 @@ inline void sourceChangeInContribution(
           : 0;
 }
 
-template <class AggregationValueType, class VertexValueType, class EdgeDataType,
+template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
-inline bool edgeFunction(const uintV &u, const uintV &v,
-                         const EdgeDataType &edge_weight,
+inline bool edgeFunction(const long &u, const long &v,
                          const VertexValueType &u_value,
                          AggregationValueType &u_change_in_contribution,
                          GlobalInfoType &global_info) {
@@ -239,7 +238,7 @@ inline bool edgeFunction(const uintV &u, const uintV &v,
 // INCREMENTAL COMPUTING / DETERMINING FRONTIER
 // =====================================================================
 template <class GlobalInfoType>
-inline void hasSourceChangedByUpdate(const uintV &v, UpdateType update_type,
+inline void hasSourceChangedByUpdate(const long &v, UpdateType update_type,
                                      bool &activateInCurrentIteration,
                                      GlobalInfoType &global_info,
                                      GlobalInfoType &global_info_old) {
@@ -248,8 +247,7 @@ inline void hasSourceChangedByUpdate(const uintV &v, UpdateType update_type,
 }
 
 template <class GlobalInfoType>
-inline void hasDestinationChangedByUpdate(const uintV &v,
-                                          UpdateType update_type,
+inline void hasDestinationChangedByUpdate(const long &v, UpdateType update_type,
                                           bool &activateInCurrentIteration,
                                           GlobalInfoType &global_info,
                                           GlobalInfoType &global_info_old) {}
@@ -259,7 +257,7 @@ inline void hasDestinationChangedByUpdate(const uintV &v,
 // ======================================================================
 template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
-void printHistory(const uintV &v, AggregationValueType **agg_values,
+void printHistory(const long &v, AggregationValueType **agg_values,
                   VertexValueType **vertex_values, GlobalInfoType &info,
                   int history_iterations) {
   for (int iter = 0; iter < history_iterations; iter++) {
@@ -269,21 +267,21 @@ void printHistory(const uintV &v, AggregationValueType **agg_values,
 }
 
 template <class GlobalInfoType>
-void printAdditionalData(ofstream &output_file, const uintV &v,
+void printAdditionalData(ofstream &output_file, const long &v,
                          GlobalInfoType &info) {}
 
 // ======================================================================
 // COMPUTE FUNCTION
 // ======================================================================
 template <class vertex> void compute(graph<vertex> &G, commandLine config) {
-  uintV n = G.n;
+  long n = G.n;
   int max_iters = config.getOptionLongValue("-maxIters", 10);
   max_iters += 1;
   double epsilon = 0.01;
   double damping = 0.85;
 
   PageRankInfo global_info(n, epsilon, damping);
-  parallel_for(uintV i = 0; i < n; i++) {
+  parallel_for(long i = 0; i < n; i++) {
     global_info.out_degrees[i] = G.V[i].getOutDegree();
   }
 

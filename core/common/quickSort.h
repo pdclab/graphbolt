@@ -25,9 +25,9 @@
 #include "parallel.h"
 #include <algorithm>
 
-template <class E, class BinPred, class intType>
-void insertionSort(E *A, intType n, BinPred f) {
-  for (intType i = 0; i < n; i++) {
+template <class E, class BinPred, class intT>
+void insertionSort(E *A, intT n, BinPred f) {
+  for (intT i = 0; i < n; i++) {
     E v = A[i];
     E *B = A + i;
     while (--B >= A && f(v, *B))
@@ -45,8 +45,8 @@ template <class E, class BinPred> E median(E a, E b, E c, BinPred f) {
 
 // Quicksort based on median of three elements as pivot
 //  and uses insertionSort for small inputs
-template <class E, class BinPred, class intType>
-void quickSort(E *A, intType n, BinPred f) {
+template <class E, class BinPred, class intT>
+void quickSort(E *A, intT n, BinPred f) {
   if (n < ISORT)
     insertionSort(A, n, f);
   else {

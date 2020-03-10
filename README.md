@@ -12,7 +12,7 @@ For asynchronous algorithms, GraphBolt incorporates KickStarter's light-weight d
 
 ### 2.1 Core Organization
 
-The `core/graphBolt/` folder contains the [GraphBolt Engine](#3-graphbolt-engine), the [KickStarter Engine](#4-kickstarter-engine), and our [Stream Ingestor](#5-stream-ingestor) module. The application/benchmark codes (e.g., PageRank, SSSP, etc.) can be found in the `apps/` directory. Useful helper files for generating the stream of changes (`tools/generators/streamGenerator.C`), creating the graph inputs in the correct format (`tools/converters/SNAPtoAdjConverter.C` - from ligra's codebase), and comparing the output of the algorithms (`tools/output_comparators/`) are also provided.
+The `core/graphBolt/` folder contains the [GraphBolt Engine](#3-graphbolt-engine), the [KickStarter Engine](#4-kickstarter-engine), and our [Stream Ingestor](#5-stream-ingestor) module. The application/benchmark codes (e.g., PageRank, SSSP, etc.) can be found in the `apps/` directory. Useful helper files for generating the stream of changes (`tools/generators/streamGenerator.C`), creating the graph inputs in the correct format (`tools/converters/SNAPtoAdjConverter.C` - from ligra's codebase), comparing the output of the algorithms (`tools/output_comparators/`) are also provided.
 
 ### 2.2 Requirements
 - g++ >= 5.3.0 with support for Cilk Plus.
@@ -21,20 +21,6 @@ The `core/graphBolt/` folder contains the [GraphBolt Engine](#3-graphbolt-engine
     - Update the LD_PRELOAD enviroment variable as specified by install_mimalloc.sh script.
 
 **Important: GraphBolt requires mimalloc to function correctly and efficiently.**
-
-Note: gcc-5 and gcc-7 come with cilk support by default. You can easily maintain multiple versions of gcc using `update-alternatives` tool. If you currently have gcc-9, you can easily install gcc-5 and switch to it as follows:
-```bash
-$   # Install gcc-5
-$   sudo apt install gcc-5
-$   # Set the path for all gcc versions
-$   sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 50
-$   # gcc-9 version
-$   sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60
-$   # Configure gcc to use gcc-5
-$   sudo update-alternatives --config gcc
-$   # Verify gcc version
-$   gcc --version
-```
 
 ### 2.3 Compiling and Running the Application
 
@@ -51,22 +37,18 @@ $   make -j
  - `-outputFile` : Optional parameter to print the output of a given algorithms.
  - Input graph file path (More information on the input format can be found in [Section 2.4](#24-graph-input-and-stream-input-format)).
 
-For example,
+For example, 
 ```bash
 $   # Ensure that LD_PRELOAD is set as specified by the install_mimalloc.sh
-$   ./PageRank -numberOfUpdateBatches 2 -nEdges 1000 -streamPath ../inputs/sample_edge_operations.txt -outputFile /tmp/output/pr_output ../inputs/sample_graph.adj
-$   ./LabelPropagation -numberOfUpdateBatches 3 -nEdges 2000 -streamPath ../inputs/sample_edge_operations.pipe -seedsFile ../inputs/sample_seeds_file -outputFile /tmp/output/lp_output ../inputs/sample_graph.adj
-$   ./CF -s -numberOfUpdateBatches 2 -nEdges 10000 -streamPath ../inputs/sample_edge_operations.txt -partitionsFile ../inputs/sample_partitions_file -outputFile /tmp/output/cf_output ../inputs/sample_graph.adj.un
-$   ./SSSP -source 0 -numberOfUpdateBatches 1 -nEdges 500 -streamPath ../inputs/sample_edge_operations.pipe -outputFile /tmp/output/sssp_output ../inputs/sample_graph.adj
-$   ./BFS -source 0 -numberOfUpdateBatches 1 -nEdges 50000 -streamPath ../inputs/sample_edge_operations.pipe -outputFile /tmp/output/bfs_output ../inputs/sample_graph.adj
+$   ./PageRank -numberOfUpdateBatches 2 -nEdges 1000 -streamPath ../inputs/testInputFile -outputFile /tmp/output/pr_output ../inputs/testGraph.adj
+$   ./SSSP -source 0 -numberOfUpdateBatches 1 -nEdges 1000 -streamPath GRAPHBOLT_HOME/myFifo -outputFile /tmp/output/sssp_output ../inputs/testGraph.adj
 ```
-Other additional parameters may be required depending on the algorithm. Refer to the `Compute()` function in the application code (`apps/PageRank.C`, `apps/SSSP.C` etc.) for the supported arguments. Additional configurations for the graph ingestor and the graph can be found in [Section 5](#5-stream-ingestor).
+Other additional parameters may be required depending on the algorithm. Additional configurations for the graph ingestor and the graph can be found in [Section 5](#5-stream-ingestor).
 
 ### 2.4 Graph Input and Stream Input Format
 
 The initial input graph should be in the [adjacency graph format](http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html). 
 For example, the SNAP format (edgelist) and the adjacency graph format for a sample graph are shown below.
-
 SNAP format:
 ```txt
 0 1
@@ -75,7 +57,7 @@ SNAP format:
 2 1
 ```
  Adjacency Graph format:
-```txt
+```bash
 AdjacencyGraph
 3
 4
@@ -89,9 +71,9 @@ AdjacencyGraph
 ```
 You can use `tools/converters/SNAPtoAdjConverter` to convert an input graph in Edgelist format (SNAP format) to the adjacency graph format, as follows:
 ```bash
-$   ./SNAPtoAdjConverter inputGraph.snap inputGraph.adj
-$   # for undirected (symmetric) graphs, use the -s flag
-$   ./SNAPtoAdjConverter -s inputGraph.snap inputGraphUndirected.adj 
+$ ./SNAPtoAdjConverter inputGraph.snap inputGraph.adj
+# for undirected (symmetric) graphs, use the -s flag
+$ ./SNAPtoAdjConverter -s inputGraph.snap inputGraphUndirected.adj 
 ```
 The streaming input file should have the edge operation (addition/deletion) on a separate line. The edge operation should be of the format, `[d/a] source destination` where `d` indicates edge deletion and `a` indicates edge addition. Example streaming input file:
 ```bash
@@ -108,10 +90,9 @@ Edge operations can be streamed through a pipe using `tools/generators/streamGen
 ```bash
 $   cd tools/generators
 $   make streamGenerator
-$   ./streamGenerator -edgeOperationsFile ../inputs/sample_edge_operations.txt -outputPipe ../inputs/sample_edge_operations.pipe
+$   ./streamGenerator -edgeOperationsFile edgeOperationsFilepath -outputPipe outputPipePath
 ```
 More details regarding the ingestor can be found in [Section 5](#5-stream-ingestor).
-Information regarding weighted graphs can be found in [Section 6](#6-Weighted-Graphs).
 
 ## 3. GraphBolt Engine
 
@@ -225,78 +206,10 @@ There are a few optional flags that can affect the behaviour and determine the v
 - `-simple`: Optional flag used to ensure that the input graph remains a simple graph (ie. no duplicate edges). The input graph is checked to remove all duplicate edges. Duplicate edges are not allowed within a batch and edge additions are checked to ensure that the edge to be added does not yet exist within the graph.
 - `-debug`: Optional flag to print the edges that were determined to be invalid.
 
-## 6. Weighted Graphs
-
-For weighted graphs, the input graph should be in the weighted adjacency graph format. It is similar to [adjacency graph format](http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html) but with the edge weights following the edges.
-
-For example, a sample graph in SNAP format (weighted edgelist) and weighted adjacency graph format is shown below.
-
-*SNAP format (weighted edgelist):*
-```txt
-0 1 10
-0 2 100
-```
-*Weighted Adjacency Graph format:*
-```txt
-WeightedAdjacencyGraph
-3
-2
-0
-2
-2
-1
-2
-10
-100
-```
-You can use `tools/converter/SNAPtoAdjConverter.C` to convert the weighted edgelist to the weighted adjacency graph format as follows:
-```bash
-$   ./SNAPtoAdjConverter -w inputGraphWeighted.snap inputGraphWeighted.adj
-$   # for undirected (symmetric) graphs, use the -s flag
-$   ./SNAPtoAdjConverter -s -w inputGraphWeighted.snap inputGraphWeightedUndirected.adj 
-```
-
-Each entry in the streaming weighted input file should be of the format `[d/a] source destination edge_data`, where `d` indicates deletion and `a` indicates addition.
-
-*Streaming weighted input file:*
-```txt
-d   0   1   10
-a   1   2   20
-```
-
-To use a weighted graph, compile the program with `WEIGHTED=1` as shown below:
-```bash
-$   make WEIGHTED=1 SSSP
-$   ./SSSP -source 0 -numberOfUpdateBatches 1 -nEdges 1000 -streamPath ../inputs/sample_edge_operations.pipe -outputFile /tmp/output/sssp_output ../inputs/sample_graph.adj.weighted
-```
-
-The edge weight datatype should be defined similar to `apps/SSSP_edgeData.h` by extending the `EdgeDataType` struct defined under `core/graph/edgeDataType.h`. The following functions determine how the edge weight from the input files are transformed and used by the system:
-- `createEdgeData(const char *edgeDataString)` - creates the edge data from the character string provided in graph input or streaming input. For example in SSSP, the string "10" is converted to the integer 10 and stored as edge weight. 
-- `setEdgeDataFromPtr(EdgeDataType *edgeData)` - performs a deep copy of the passed edge data.
-- `del()` - to deallocate any allocated memory.
-
-**Complex edge data**
-
-Graphs with complex edge data are also supported provided that the complex edge data is represented as a single string without spaces. For example, if each edge has `{edge_id, distance, max_speed}` it can be represented in the weighted SNAP format as follows:
-```txt
-0 1 1_0.3_0.5
-0 2 2_1.5_1.68
-```
-
-This graph with complex edge data can be converted into the weighted adjacency graph format with `tools/converter/SNAPtoAdjConverter.C` as shown below.
-```bash
-$   ./SNAPtoAdjConverter -w inputGraphWeighted.snap inputGraphWeighted.adj
-$   # for undirected (symmetric) graphs, use the -s flag
-$   ./SNAPtoAdjConverter -s -w inputGraphWeighted.snap inputGraphWeightedUndirected.adj 
-```
-
-The weighted adjacency graph can then be used in user programs by defining the corresponding `EdgeDataType` struct as discussed above. In the `createEdgeData(const char *edgeDataString)` function, the string can be parsed into the respective datatypes `{long, double, double}` for `{edge_id, distance, max_speed}`.
-
-
-## 7. Acknowledgements
+## 6. Acknowledgements
 Some utility functions from [Ligra](https://github.com/jshun/ligra) and [Problem Based Benchmark Suite](http://www.cs.cmu.edu/~pbbs/index.html) are used as part of this project. We are thankful to them for releasing their source code.
 
-## 8. Resources
+## 7. Resources
 Mugilan Mariappan and Keval Vora. [GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs](https://dl.acm.org/citation.cfm?id=3303974). European Conference on Computer Systems (**EuroSys'19**). Dresden, Germany, March 2019.
 
 Keval Vora, Rajiv Gupta and Guoqing Xu  [KickStarter: Fast and Accurate Computations on Streaming Graphs via Trimmed Approximations](https://dl.acm.org/citation.cfm?id=3093336.3037748). Architectural Support for Programming Languages and Operating Systems (**ASPLOS'17**). Xi'an, China, April 2017.

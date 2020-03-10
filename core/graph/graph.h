@@ -42,59 +42,35 @@
 using namespace std;
 
 struct edge {
-  uintV source;
-  uintV destination;
-#ifdef EDGEDATA
-  EdgeData *edgeData; // pointer to struct
-  edge(uintV f, uintV s, EdgeData *e) : source(f), destination(s), edgeData(e) {}
-#else
-  edge(uintV f, uintV s) : source(f), destination(s) {}
-#endif
+  long source;
+  long destination;
+  edge(long f, long s) : source(f), destination(s) {}
 };
 
 struct edgeArray {
   edge *E;
-#ifdef EDGEDATA
-  EdgeData *edgeDataArray; // (pointer to array of structs)
-#endif
-  long size;
-  long maxVertex;
+  unsigned long size;
+  unsigned long maxVertex;
   void del() {
-    if (E != nullptr) {
-#ifdef EDGEDATA
-      parallel_for(uintV i = 0; i < size; i++) { edgeDataArray[i].del(); }
-      free(edgeDataArray);
-#endif
+    if (E != nullptr)
       free(E);
-    }
   }
   edgeArray() : size(0) { E = nullptr; }
-#ifdef EDGEDATA
-  edgeArray(edge *EE, EdgeData *_edgeDataArray, long _size,
-            long _maxVertex)
-      : E(EE), edgeDataArray(_edgeDataArray), size(_size),
-        maxVertex(_maxVertex) {}
-#else
-  edgeArray(edge *EE, long _size, long _maxVertex)
+  edgeArray(edge *EE, unsigned long _size, unsigned long _maxVertex)
       : E(EE), size(_size), maxVertex(_maxVertex) {}
-#endif
 };
 
 struct edgesToDelete {
-  vector<uintV> outEdgesToDelete;
-  vector<uintV> inEdgesToDelete;
-#ifdef EDGEDATA
-  vector<EdgeData *> outEdgeDataToDelete;
-  vector<EdgeData *> inEdgeDataToDelete;
-#endif
+  vector<uintT> outEdgesToDelete;
+  vector<uintT> inEdgesToDelete;
 
   edgesToDelete() {}
-  edgesToDelete(vector<uintV> _outEdgesToDelete, vector<uintV> _inEdgesToDelete)
+  edgesToDelete(vector<uintT> _outEdgesToDelete, vector<uintT> _inEdgesToDelete)
       : outEdgesToDelete(_outEdgesToDelete), inEdgesToDelete(_inEdgesToDelete) {
   }
 
-  inline bool hasOutNeighbor(uintV outNeighbor) {
-    vector<uintV>::iterator index =
+  inline bool hasOutNeighbor(uintT outNeighbor) {
+    vector<uintT>::iterator index =
         find(outEdgesToDelete.begin(), outEdgesToDelete.end(), outNeighbor);
     if (index != outEdgesToDelete.end()) {
       return true;
@@ -102,8 +78,8 @@ struct edgesToDelete {
     return false;
   }
 
-  inline bool hasInNeighbor(uintV inNeighbor) {
-    vector<uintV>::iterator index =
+  inline bool hasInNeighbor(uintT inNeighbor) {
+    vector<uintT>::iterator index =
         find(inEdgesToDelete.begin(), inEdgesToDelete.end(), inNeighbor);
     if (index != inEdgesToDelete.end()) {
       return true;
@@ -111,9 +87,9 @@ struct edgesToDelete {
     return false;
   }
 
-  inline long getIndexOfOutNeighbor(uintV outNeighbor, long start = 0) {
+  inline long getIndexOfOutNeighbor(uintT outNeighbor, long start = 0) {
 
-    vector<uintV>::iterator it = find(outEdgesToDelete.begin() + start,
+    vector<uintT>::iterator it = find(outEdgesToDelete.begin() + start,
                                       outEdgesToDelete.end(), outNeighbor);
     if (it != outEdgesToDelete.end()) {
       return it - outEdgesToDelete.begin();
@@ -121,8 +97,8 @@ struct edgesToDelete {
     return -1;
   }
 
-  inline long getIndexOfInNeighbor(uintV inNeighbor, long start = 0) {
-    vector<uintV>::iterator it = find(inEdgesToDelete.begin() + start,
+  inline long getIndexOfInNeighbor(uintT inNeighbor, long start = 0) {
+    vector<uintT>::iterator it = find(inEdgesToDelete.begin() + start,
                                       inEdgesToDelete.end(), inNeighbor);
     if (it != inEdgesToDelete.end()) {
       return it - inEdgesToDelete.begin();
@@ -133,25 +109,11 @@ struct edgesToDelete {
   inline void clear() {
     outEdgesToDelete.clear();
     inEdgesToDelete.clear();
-#ifdef EDGEDATA
-    outEdgeDataToDelete.clear();
-    inEdgeDataToDelete.clear();
-#endif
   }
 
-  inline void insertOutEdge(uintV v) { outEdgesToDelete.push_back(v); }
+  inline void insertOutEdge(uintT v) { outEdgesToDelete.push_back(v); }
 
-  inline void insertInEdge(uintV v) { inEdgesToDelete.push_back(v); }
-
-#ifdef EDGEDATA
-  inline void insertOutData(EdgeData *edgeData) {
-    outEdgeDataToDelete.push_back(edgeData);
-  }
-
-  inline void insertInData(EdgeData *edgeData) {
-    inEdgeDataToDelete.push_back(edgeData);
-  }
-#endif
+  inline void insertInEdge(uintT v) { inEdgesToDelete.push_back(v); }
 };
 
 template <class E> struct SimpleCmp {
@@ -170,13 +132,13 @@ struct edgeDeletionData {
   edgesToDelete *dataMap;
   unsigned long numberOfDeletions;
   edge *edgesArray;
-  uintV n;
+  uintT n;
   bool *updatedVertices;
 
-  edgeDeletionData(uintV _n) : n(_n) {
+  edgeDeletionData(uintT _n) : n(_n) {
     updatedVertices = newA(bool, n);
     dataMap = new edgesToDelete[n];
-    parallel_for(uintV i = 0; i < n; i++) { updatedVertices[i] = 0; }
+    parallel_for(uintT i = 0; i < n; i++) { updatedVertices[i] = 0; }
     numberOfDeletions = 0;
     edgesArray = nullptr;
   }
@@ -195,18 +157,15 @@ struct edgeDeletionData {
     // sort on src
     quickSort(edgesArray, numberOfDeletions, MinSrcCmp<edge>());
 
-    parallel_for(long i = 0; i < numberOfDeletions; i++) {
-      long prev = (i == 0) ? 0 : i - 1;
+    parallel_for(intT i = 0; i < numberOfDeletions; i++) {
+      intT prev = (i == 0) ? 0 : i - 1;
       if ((i == 0) || (edgesArray[prev].source != edgesArray[i].source)) {
-        long j = i;
+        intT j = i;
         updatedVertices[edgesArray[i].source] = 1;
         while ((j < numberOfDeletions) &&
                (edgesArray[i].source == edgesArray[j].source)) {
           dataMap[edgesArray[j].source].insertOutEdge(
               edgesArray[j].destination);
-#ifdef EDGEDATA
-          dataMap[edgesArray[j].source].insertOutData(edgesArray[j].edgeData);
-#endif
           j++;
         }
       }
@@ -214,30 +173,25 @@ struct edgeDeletionData {
 
     // sort on dest
     quickSort(edgesArray, numberOfDeletions, MinDesCmp<edge>());
-
-    parallel_for(long i = 0; i < numberOfDeletions; i++) {
-      long prev = (i == 0) ? 0 : i - 1;
+    parallel_for(intT i = 0; i < numberOfDeletions; i++) {
+      intT prev = (i == 0) ? 0 : i - 1;
       if (i == 0 || edgesArray[prev].destination != edgesArray[i].destination) {
-        long j = i;
+        intT j = i;
         updatedVertices[edgesArray[i].destination] = 1;
         while (j < numberOfDeletions &&
                edgesArray[i].destination == edgesArray[j].destination) {
           dataMap[edgesArray[j].destination].insertInEdge(edgesArray[j].source);
-#ifdef EDGEDATA
-          dataMap[edgesArray[j].destination].insertInData(
-              edgesArray[j].edgeData);
-#endif
           j++;
         }
       }
     }
   }
 
-  edgesToDelete &getEdgeDeletionData(uintV vertex) { return dataMap[vertex]; }
+  edgesToDelete &getEdgeDeletionData(uintT vertex) { return dataMap[vertex]; }
 
   void reset() {
     numberOfDeletions = 0;
-    parallel_for(uintV i = 0; i < n; i++) {
+    parallel_for(uintT i = 0; i < n; i++) {
       if (updatedVertices[i] == 1) {
         // Delete the entries in dataMap corresponding to the vertex i
         dataMap[i].clear();
@@ -246,12 +200,12 @@ struct edgeDeletionData {
     }
   }
 
-  void updateNumVertices(uintV maxVertex) {
+  void updateNumVertices(intT maxVertex) {
     if (n) {
       delete[] dataMap;
     }
     updatedVertices = renewA(bool, updatedVertices, maxVertex);
-    parallel_for(uintV i = 0; i < maxVertex; i++) { updatedVertices[i] = 0; }
+    parallel_for(uintT i = 0; i < maxVertex; i++) { updatedVertices[i] = 0; }
     dataMap = new edgesToDelete[maxVertex];
     n = maxVertex;
   }
@@ -278,7 +232,7 @@ public:
   virtual uintE *getOutEdgeOffsets() = 0;
   virtual uintE *getInEdgeOffsets() = 0;
   virtual void del() = 0;
-  virtual void *updateVertices(uintV _verticesSize) = 0;
+  virtual void *updateVertices(uintT _verticesSize) = 0;
   virtual edgeArray addEdges(edgeArray &edgesToAdd, bool *updatedVertices) = 0;
   virtual void setSymmetric(bool flag) = 0;
   virtual edgeArray deleteEdges(edgeDeletionData &data, bool *updatedVertices,
@@ -291,32 +245,25 @@ public:
   vertex *V;
   unsigned long n;
   unsigned long m;
-  uintV **outEdges = NULL, **inEdges = NULL;
+  uintE **outEdges = NULL, **inEdges = NULL;
   uintE *outEdgesArraySize = NULL, *inEdgesArraySize = NULL;
-#ifdef EDGEDATA
-  EdgeData **outEdgeData = NULL, **inEdgeData = NULL;
-#endif
   // Indicates whether the graph is directed or undirected. TRUE -> indicates
   // undirected graph
   bool symmetric;
 
-  uintV *inEdgeUpdates = NULL;
-  uintV *outEdgeUpdates = NULL;
+  uintE *outEdgeArrayLengths;
+  uintE *inEdgeArrayLengths;
 
-#ifdef EDGEDATA
-  AdjacencyRep(vertex *VV, unsigned long nn, unsigned long mm, uintV *ai,
-               uintV *_inEdges = NULL, intE *_outEdgeOffsets = NULL,
-               intE *_inEdgeOffsets = NULL, EdgeData *_outEdgeData = NULL,
-               EdgeData *_inEdgeData = NULL)
-#else
-  AdjacencyRep(vertex *VV, unsigned long nn, unsigned long mm, uintV *ai,
-               uintV *_inEdges = NULL, intE *_outEdgeOffsets = NULL,
-               intE *_inEdgeOffsets = NULL)
-#endif
+  uintT *inEdgeUpdates = NULL;
+  uintT *outEdgeUpdates = NULL;
+
+  AdjacencyRep(vertex *VV, unsigned long nn, unsigned long mm, uintE *ai,
+               uintE *_inEdges = NULL, uintE *_outEdgeOffsets = NULL,
+               uintE *_inEdgeOffsets = NULL)
       : V(VV), n(nn), m(mm), symmetric(false) {
-    outEdges = newA(uintV *, nn);
+    outEdges = newA(uintE *, nn);
     outEdgesArraySize = newA(uintE, nn);
-    outEdgeUpdates = newA(uintV, nn);
+    outEdgeUpdates = newA(uintT, nn);
 
 #ifdef EDGEDATA
     if (_outEdgeData != NULL) {
@@ -325,17 +272,17 @@ public:
 #endif
 
     if (_inEdges != NULL) {
-      inEdges = newA(uintV *, nn);
+      inEdges = newA(uintE *, nn);
       inEdgesArraySize = newA(uintE, nn);
-      inEdgeUpdates = newA(uintV, nn);
+      inEdgeUpdates = newA(uintT, nn);
 #ifdef EDGEDATA
       inEdgeData = newA(EdgeData *, nn);
 #endif
     }
 
-    parallel_for(uintV i = 0; i < nn; i++) {
+    parallel_for(unsigned long i = 0; i < nn; i++) {
       uintE outEdgesSize = V[i].getOutDegree();
-      outEdges[i] = newA(uintV, outEdgesSize);
+      outEdges[i] = newA(uintE, outEdgesSize);
       outEdgesArraySize[i] = outEdgesSize;
 
 #ifdef EDGEDATA
@@ -356,7 +303,7 @@ public:
 
       if (_inEdges != NULL) {
         uintE inEdgesSize = V[i].getInDegree();
-        inEdges[i] = newA(uintV, inEdgesSize);
+        inEdges[i] = newA(uintE, inEdgesSize);
         inEdgesArraySize[i] = inEdgesSize;
 
 #ifdef EDGEDATA
@@ -381,7 +328,7 @@ public:
       free(ai);
       free(_outEdgeOffsets);
 #ifdef EDGEDATA
-      parallel_for(uintE i = 0; i < mm; i++) { _outEdgeData[i].del(); }
+      parallel_for(uintT i = 0; i < mm; i++) { _outEdgeData[i].del(); }
       free(_outEdgeData);
 #endif
     }
@@ -390,12 +337,13 @@ public:
       free(_inEdges);
       free(_inEdgeOffsets);
 #ifdef EDGEDATA
-      parallel_for(uintE i = 0; i < mm; i++) { _inEdgeData[i].del(); }
+      parallel_for(uintT i = 0; i < mm; i++) { _inEdgeData[i].del(); }
       free(_inEdgeData);
 #endif
     }
   }
 
+  // template <class intT>
   void setSymmetric(bool flag) { symmetric = flag; }
 
   void *getOutEdges() { return outEdges; }
@@ -414,27 +362,27 @@ public:
 
   bool isSymmetric() { return symmetric; }
 
-  void *updateVertices(uintV maxVertex) {
+  void *updateVertices(uintT maxVertex) {
     if (isSymmetric()) {
       return updateVertices_symmetric(maxVertex);
     }
 
     if (maxVertex >= n) {
-      uintV currentVertexSize = n;
+      uintT currentVertexSize = n;
       n = maxVertex + 1;
       V = renewA(vertex, V, n);
-      outEdges = renewA(uintV *, outEdges, n);
-      inEdges = renewA(uintV *, inEdges, n);
+      outEdges = renewA(uintE *, outEdges, n);
+      inEdges = renewA(uintE *, inEdges, n);
       outEdgesArraySize = renewA(uintE, outEdgesArraySize, n);
       inEdgesArraySize = renewA(uintE, inEdgesArraySize, n);
-      outEdgeUpdates = renewA(uintV, outEdgeUpdates, n);
-      inEdgeUpdates = renewA(uintV, inEdgeUpdates, n);
+      outEdgeUpdates = renewA(uintT, outEdgeUpdates, n);
+      inEdgeUpdates = renewA(uintT, inEdgeUpdates, n);
 #ifdef EDGEDATA
       outEdgeData = renewA(EdgeData *, outEdgeData, n);
       inEdgeData = renewA(EdgeData *, inEdgeData, n);
 #endif
 
-      parallel_for(uintV i = 0; i < currentVertexSize; i++) {
+      parallel_for(uintT i = 0; i < currentVertexSize; i++) {
         V[i].setOutNeighbors(outEdges[i]);
         V[i].setInNeighbors(inEdges[i]);
 #ifdef EDGEDATA
@@ -443,12 +391,11 @@ public:
 #endif
       }
 
-      parallel_for(uintV i = currentVertexSize; i < n; i++) {
+      parallel_for(uintT i = currentVertexSize; i < n; i++) {
         V[i].setOutDegree(0);
         V[i].setInDegree(0);
-        // TODO : What is this doing??
-        outEdges[i] = newA(uintV, 0);
-        inEdges[i] = newA(uintV, 0);
+        outEdges[i] = newA(uintE, 0);
+        inEdges[i] = newA(uintE, 0);
         V[i].setOutNeighbors(outEdges[i]);
         V[i].setInNeighbors(inEdges[i]);
 #ifdef EDGEDATA
@@ -462,28 +409,28 @@ public:
     }
   }
 
-  void *updateVertices_symmetric(uintV maxVertex) {
+  void *updateVertices_symmetric(uintT maxVertex) {
     if (maxVertex > n) {
-      uintV currentVertexSize = n;
+      uintT currentVertexSize = n;
       n = maxVertex + 1;
       V = renewA(vertex, V, n);
-      outEdges = renewA(uintV *, outEdges, n);
+      outEdges = renewA(uintE *, outEdges, n);
       outEdgesArraySize = renewA(uintE, outEdgesArraySize, n);
-      outEdgeUpdates = renewA(uintV, outEdgeUpdates, n);
+      outEdgeUpdates = renewA(uintT, outEdgeUpdates, n);
 #ifdef EDGEDATA
       outEdgeData = renewA(EdgeData *, outEdgeData, n);
 #endif
 
-      parallel_for(uintV i = 0; i < currentVertexSize; i++) {
+      parallel_for(uintT i = 0; i < currentVertexSize; i++) {
         V[i].setOutNeighbors(outEdges[i]);
 #ifdef EDGEDATA
         V[i].setOutEdgeDataArray(outEdgeData[i]);
 #endif
       }
 
-      parallel_for(uintV i = currentVertexSize; i < n; i++) {
+      parallel_for(uintT i = currentVertexSize; i < n; i++) {
         V[i].setOutDegree(0);
-        outEdges[i] = newA(uintV, 0);
+        outEdges[i] = newA(uintE, 0);
         V[i].setOutNeighbors(outEdges[i]);
 #ifdef EDGEDATA
         V[i].setOutEdgeDataArray(outEdgeData[i]);
@@ -495,15 +442,15 @@ public:
   }
 
   edgeArray addEdges_symmetric(edgeArray &edgesToAdd, bool *updatedVertices) {
-    parallel_for(uintV i = 0; i < n; i++) { outEdgeUpdates[i] = 0; }
+    parallel_for(uintE i = 0; i < n; i++) { outEdgeUpdates[i] = 0; }
 
     edge *E = edgesToAdd.E;
     uintE size = edgesToAdd.size;
     // for each new edge, we increment the outDegreeOffset of the source
     // and we increment the inDegreeOffset of the destination
     parallel_for(uintE i = 0; i < size; i++) {
-      uintV source = E[i].source;
-      uintV destination = E[i].destination;
+      uint source = E[i].source;
+      uint destination = E[i].destination;
 
       pbbs::write_add(&outEdgeUpdates[source], 1);
 
@@ -519,12 +466,12 @@ public:
           (outEdgeUpdates[i] + V[i].getOutDegree()) > outEdgesArraySize[i]) {
         outEdgesArraySize[i] =
             V[i].getOutDegree() + outEdgeUpdates[i] + EDGE_ARRAY_BUFFER;
-        outEdges[i] = renewA(uintV, outEdges[i], outEdgesArraySize[i]);
+        outEdges[i] = renewA(uintE, outEdges[i], outEdgesArraySize[i]);
         V[i].setOutNeighbors(outEdges[i]);
       }
 #else
       if (outEdgeUpdates[i]) {
-        outEdges[i] = renewA(uintV, outEdges[i],
+        outEdges[i] = renewA(uintE, outEdges[i],
                              (V[i].getOutDegree() + outEdgeUpdates[i]));
         V[i].setOutNeighbors(outEdges[i]);
 #ifdef EDGEDATA
@@ -537,16 +484,16 @@ public:
     }
 
     parallel_for(uintE i = 0; i < size; i++) {
-      uintV source = E[i].source;
-      uintV destination = E[i].destination;
+      uintE source = E[i].source;
+      uintE destination = E[i].destination;
 #ifdef EDGEDATA
       EdgeData *edgeData = E[i].edgeData;
 #endif
       vertex &sourceVertex = V[source];
       vertex &destinationVertex = V[destination];
-      long outIndex = sourceVertex.fetchAndAddOutDegree(1);
+      int outIndex = sourceVertex.fetchAndAddOutDegree(1);
       outEdges[source][outIndex] = destination;
-      long inIndex = destinationVertex.fetchAndAddOutDegree(1);
+      int inIndex = destinationVertex.fetchAndAddOutDegree(1);
       outEdges[destination][inIndex] = source;
 #ifdef EDGEDATA
       new (outEdgeData[source] + outIndex) EdgeData();
@@ -557,36 +504,19 @@ public:
     }
 
     long curr_size = edgesToAdd.size;
-#ifdef EDGEDATA
-    EdgeData *edgeDataWeight = newA(EdgeData, curr_size * 2);
-#endif
     edge *symE = newA(edge, curr_size * 2);
     long j = 0;
     for (long i = 0; i < curr_size; i++) {
       symE[j].source = edgesToAdd.E[i].source;
       symE[j].destination = edgesToAdd.E[i].destination;
-#ifdef EDGEDATA
-      new (edgeDataWeight + j) EdgeData();
-      symE[j].edgeData = &edgeDataWeight[j];
-      symE[j].edgeData->setEdgeDataFromPtr(&edgesToAdd.edgeDataArray[i]);
-#endif
       j++;
       symE[j].source = edgesToAdd.E[i].destination;
       symE[j].destination = edgesToAdd.E[i].source;
-#ifdef EDGEDATA
-      new (edgeDataWeight + j) EdgeData();
-      symE[j].edgeData = &edgeDataWeight[j];
-      symE[j].edgeData->setEdgeDataFromPtr(&edgesToAdd.edgeDataArray[i]);
-#endif
       j++;
     }
-    uintV max_vertex = edgesToAdd.maxVertex;
+    long max_vertex = edgesToAdd.maxVertex;
     edgesToAdd.del();
-#ifdef EDGEDATA
-    edgesToAdd = edgeArray(symE, edgeDataWeight, j, max_vertex);
-#else
     edgesToAdd = edgeArray(symE, j, max_vertex);
-#endif
 
     uintE newSize = m + (edgesToAdd.size);
     m = newSize;
@@ -598,18 +528,18 @@ public:
       return addEdges_symmetric(edgesToAdd, updatedVertices);
     }
 
-    parallel_for(uintV i = 0; i < n; i++) {
+    parallel_for(uintT i = 0; i < n; i++) {
       outEdgeUpdates[i] = 0;
       inEdgeUpdates[i] = 0;
     }
 
     edge *E = edgesToAdd.E;
-    uintE size = edgesToAdd.size;
+    uint size = edgesToAdd.size;
     // for each new edge, we increment the outDegreeOffset of the source
     // and we increment the inDegreeOffset of the destination
     parallel_for(uintE i = 0; i < size; i++) {
-      uintV source = E[i].source;
-      uintV destination = E[i].destination;
+      uintT source = E[i].source;
+      uintT destination = E[i].destination;
 
       pbbs::write_add(&outEdgeUpdates[source], 1);
 
@@ -619,25 +549,25 @@ public:
       updatedVertices[destination] = 1;
     }
 
-    parallel_for(uintV i = 0; i < n; i++) {
+    parallel_for(uintE i = 0; i < n; i++) {
 #ifdef INCLUDEEXTRABUFFERSPACE
       if (outEdgeUpdates[i] &&
           (outEdgeUpdates[i] + V[i].getOutDegree()) > outEdgesArraySize[i]) {
         outEdgesArraySize[i] =
             V[i].getOutDegree() + outEdgeUpdates[i] + EDGE_ARRAY_BUFFER;
-        outEdges[i] = renewA(uintV, outEdges[i], outEdgesArraySize[i]);
+        outEdges[i] = renewA(uintE, outEdges[i], outEdgesArraySize[i]);
         V[i].setOutNeighbors(outEdges[i]);
       }
       if (inEdgeUpdates[i] &&
           (inEdgeUpdates[i] + V[i].getInDegree()) > inEdgesArraySize[i]) {
         inEdgesArraySize[i] =
             V[i].getInDegree() + inEdgeUpdates[i] + EDGE_ARRAY_BUFFER;
-        inEdges[i] = renewA(uintV, inEdges[i], inEdgesArraySize[i]);
+        inEdges[i] = renewA(uintE, inEdges[i], inEdgesArraySize[i]);
         V[i].setInNeighbors(inEdges[i]);
       }
 #else
       if (outEdgeUpdates[i]) {
-        outEdges[i] = renewA(uintV, outEdges[i],
+        outEdges[i] = renewA(uintE, outEdges[i],
                              (V[i].getOutDegree() + outEdgeUpdates[i]));
         V[i].setOutNeighbors(outEdges[i]);
 #ifdef EDGEDATA
@@ -648,7 +578,7 @@ public:
       }
       if (inEdgeUpdates[i]) {
         inEdges[i] =
-            renewA(uintV, inEdges[i], (V[i].getInDegree() + inEdgeUpdates[i]));
+            renewA(uintE, inEdges[i], (V[i].getInDegree() + inEdgeUpdates[i]));
         V[i].setInNeighbors(inEdges[i]);
 #ifdef EDGEDATA
         inEdgeData[i] = renewA(EdgeData, inEdgeData[i],
@@ -660,17 +590,17 @@ public:
     }
 
     parallel_for(uintE i = 0; i < edgesToAdd.size; i++) {
-      uintV source = E[i].source;
-      uintV destination = E[i].destination;
+      uintE source = E[i].source;
+      uintE destination = E[i].destination;
 #ifdef EDGEDATA
       EdgeData *edgeData = E[i].edgeData;
 #endif
       vertex &sourceVertex = V[source];
       vertex &destinationVertex = V[destination];
 
-      long outIndex = sourceVertex.fetchAndAddOutDegree(1);
+      int outIndex = sourceVertex.fetchAndAddOutDegree(1);
       outEdges[source][outIndex] = destination;
-      long inIndex = destinationVertex.fetchAndAddInDegree(1);
+      int inIndex = destinationVertex.fetchAndAddInDegree(1);
       inEdges[destination][inIndex] = source;
 #ifdef EDGEDATA
       new (outEdgeData[source] + outIndex) EdgeData();
@@ -688,32 +618,32 @@ public:
   // Todo: change type of edges to be signed
   edgeArray deleteEdges_symmetric(edgeDeletionData &deletionsData,
                                   bool *updatedVertices, bool debugFlag) {
-    uintV maxValue = numeric_limits<uintV>::max();
-    intE numberOfSuccessfulDeletions = 0;
+    uintE maxValue = numeric_limits<uintE>::max();
+    intT numberOfSuccessfulDeletions = 0;
 
     edge *ED = newA(edge, deletionsData.numberOfDeletions * 2);
 #ifdef EDGEDATA
-    EdgeData *edgeDataWeight = newA(EdgeData, deletionsData.numberOfDeletions * 2);
+    EdgeData *edgeDataWeight = newA(EdgeData, deletionsData.numberOfDeletions);
 #endif
+    intT edgeArrayIndex = 0;
 
-    // TODO : Why?
-    uintE *outDegree = newA(uintE, n);
-    uintE *inDegree = newA(uintE, n);
+    intT *outDegree = newA(intT, n);
+    intT *inDegree = newA(intT, n);
 
-    parallel_for(uintV i = 0; i < n; i++) {
+    parallel_for(intT i = 0; i < n; i++) {
       if (deletionsData.updatedVertices[i] == 1) {
         outDegree[i] = V[i].getOutDegree();
         edgesToDelete *currentEdgesToDelete =
             &deletionsData.getEdgeDeletionData(i);
-        vector<uintV> &outEdgesToDelete =
+        vector<uintE> &outEdgesToDelete =
             currentEdgesToDelete->outEdgesToDelete;
 
-        parallel_for(intE j = 0; j < outEdgesToDelete.size(); j++) {
-          uintV targetOutNgh = outEdgesToDelete[j];
-          uintV *currOutEdges = outEdges[i];
+        parallel_for(intT j = 0; j < outEdgesToDelete.size(); j++) {
+          uintT targetOutNgh = outEdgesToDelete[j];
+          uintE *currOutEdges = outEdges[i];
 
           bool deletionSuccessful = false;
-          for (intE k = 0; k < outDegree[i]; k++) {
+          for (intT k = 0; k < outDegree[i]; k++) {
             if (targetOutNgh == currOutEdges[k]) {
               bool casSuccessful;
               do {
@@ -732,37 +662,30 @@ public:
       }
     }
 
-    parallel_for(uintV i = 0; i < n; i++) {
+    parallel_for(intT i = 0; i < n; i++) {
       if (deletionsData.updatedVertices[i] == 1) {
-        uintV *currOutEdges = outEdges[i];
-#ifdef EDGEDATA
-        EdgeData *currOutEdgeData = outEdgeData[i];
-#endif
+        uintE *currOutEdges = outEdges[i];
 
         edgesToDelete *currentEdgesToDelete =
             &deletionsData.getEdgeDeletionData(i);
         intE last_non_deleted_index;
-        vector<uintV> &outEdgesToDelete =
+        vector<uintE> &outEdgesToDelete =
             currentEdgesToDelete->outEdgesToDelete;
-        intE to_delete_count = outEdgesToDelete.size();
+        long to_delete_count = outEdgesToDelete.size();
 
-        intE actual_to_delete_count = 0;
-        for (intE i = 0; i < to_delete_count; i++) {
+        long actual_to_delete_count = 0;
+        for (long i = 0; i < to_delete_count; i++) {
           if (outEdgesToDelete[i] != maxValue) {
             actual_to_delete_count++;
           }
         }
-        intE total_swapped = 0;
+        int total_swapped = 0;
 
         for (intE k = outDegree[i] - 1,
                   last_non_deleted_index = outDegree[i] - 1;
              k >= 0; k--) {
           if (currOutEdges[k] == maxValue) {
             currOutEdges[k] = currOutEdges[last_non_deleted_index];
-#ifdef EDGEDATA
-            currOutEdgeData[k].del();
-            currOutEdgeData[k] = currOutEdgeData[last_non_deleted_index];
-#endif
             last_non_deleted_index--;
             total_swapped++;
           }
@@ -776,18 +699,18 @@ public:
       }
     }
 
-    parallel_for(uintV i = 0; i < n; i++) {
+    parallel_for(intT i = 0; i < n; i++) {
       if (deletionsData.updatedVertices[i] == 1) {
         inDegree[i] = V[i].getOutDegree();
         edgesToDelete *currentEdgesToDelete =
             &deletionsData.getEdgeDeletionData(i);
-        vector<uintV> &inEdgesToDelete = currentEdgesToDelete->inEdgesToDelete;
-        parallel_for(uintV j = 0;
+        vector<uintE> &inEdgesToDelete = currentEdgesToDelete->inEdgesToDelete;
+        parallel_for(intT j = 0;
                      j < currentEdgesToDelete->inEdgesToDelete.size(); j++) {
-          uintV targetInNgh = inEdgesToDelete[j];
-          uintV *currInEdges = outEdges[i];
+          uintT targetInNgh = inEdgesToDelete[j];
+          uintE *currInEdges = outEdges[i];
           bool deletionSuccessful = false;
-          for (intE k = 0; k < inDegree[i]; k++) {
+          for (intT k = 0; k < inDegree[i]; k++) {
             if (targetInNgh == currInEdges[k]) {
               bool casSuccessful;
               do {
@@ -806,37 +729,30 @@ public:
       }
     }
 
-    parallel_for(uintV i = 0; i < n; i++) {
+    parallel_for(intT i = 0; i < n; i++) {
       if (deletionsData.updatedVertices[i] == 1) {
-        uintV *currInEdges = outEdges[i];
-#ifdef EDGEDATA
-        EdgeData *currInEdgeData = outEdgeData[i];
-#endif
+        uintE *currInEdges = outEdges[i];
 
         edgesToDelete *currentEdgesToDelete =
             &deletionsData.getEdgeDeletionData(i);
-        vector<uintV> &inEdgesToDelete = currentEdgesToDelete->inEdgesToDelete;
         intE last_non_deleted_index;
 
-        intE to_delete_count = inEdgesToDelete.size();
+        vector<uintE> &inEdgesToDelete = currentEdgesToDelete->inEdgesToDelete;
+        long to_delete_count = inEdgesToDelete.size();
 
-        intE actual_to_delete_count = 0;
-        for (intE i = 0; i < to_delete_count; i++) {
+        long actual_to_delete_count = 0;
+        for (long i = 0; i < to_delete_count; i++) {
           if (inEdgesToDelete[i] != maxValue) {
             actual_to_delete_count++;
           }
         }
 
-        intE total_swapped = 0;
+        int total_swapped = 0;
 
         for (intE k = inDegree[i] - 1, last_non_deleted_index = inDegree[i] - 1;
              k >= 0; k--) {
           if (currInEdges[k] == maxValue) {
             currInEdges[k] = currInEdges[last_non_deleted_index];
-#ifdef EDGEDATA
-            currInEdgeData[k].del();
-            currInEdgeData[k] = currInEdgeData[last_non_deleted_index];
-#endif
             last_non_deleted_index--;
             total_swapped++;
           }
@@ -848,24 +764,18 @@ public:
         pbbs::fetch_and_add(&numberOfSuccessfulDeletions, total_swapped);
       }
     }
-    intE edgeArrayIndex = 0;
-    for (uintV i = 0; i < n; i++) {
+
+    for (intT i = 0; i < n; i++) {
       if (deletionsData.updatedVertices[i] == 1) {
         edgesToDelete *currentEdgesToDelete =
             &deletionsData.getEdgeDeletionData(i);
-        vector<uintV> &outEdgesToDelete =
+        vector<uintT> &outEdgesToDelete =
             currentEdgesToDelete->outEdgesToDelete;
-        vector<uintV> &inEdgesToDelete = currentEdgesToDelete->inEdgesToDelete;
-#ifdef EDGEDATA
-        vector<EdgeData *> &outEdgeDataToDelete =
-            currentEdgesToDelete->outEdgeDataToDelete;
-        vector<EdgeData *> &inEdgeDataToDelete =
-            currentEdgesToDelete->inEdgeDataToDelete;
-#endif
+        vector<uintT> &inEdgesToDelete = currentEdgesToDelete->inEdgesToDelete;
 
-        for (intE j = 0; j < outEdgesToDelete.size(); j++) {
+        for (uintE j = 0; j < outEdgesToDelete.size(); j++) {
           if (outEdgesToDelete[j] != maxValue) {
-            intE edIndex = edgeArrayIndex++;
+            intT edIndex = edgeArrayIndex++;
             ED[edIndex].source = i;
             ED[edIndex].destination = outEdgesToDelete[j];
 #ifdef EDGEDATA
@@ -880,9 +790,9 @@ public:
           }
         }
 
-        for (intE j = 0; j < inEdgesToDelete.size(); j++) {
+        for (uintE j = 0; j < inEdgesToDelete.size(); j++) {
           if (inEdgesToDelete[j] != maxValue) {
-            intE edIndex = edgeArrayIndex++;
+            intT edIndex = edgeArrayIndex++;
             ED[edIndex].source = i;
             ED[edIndex].destination = inEdgesToDelete[j];
 #ifdef EDGEDATA
@@ -904,17 +814,17 @@ public:
     uintE newSize = m - numberOfSuccessfulDeletions;
 
     m = newSize;
-#ifdef EDGEDATA
-    return edgeArray(ED, edgeDataWeight, edgeArrayIndex, n);
-#else
+#ifndef EDGEDATA
     return edgeArray(ED, edgeArrayIndex, n);
+#else
+    return edgeArray(ED, edgeDataWeight, edgeArrayIndex, n);
 #endif
   }
 
   edgeArray deleteEdges(edgeDeletionData &deletionsData, bool *updatedVertices,
                         bool debugFlag) {
-    uintV maxValue = numeric_limits<uintV>::max();
-    intE numberOfSuccessfulDeletions = 0;
+    uintE maxValue = numeric_limits<uintE>::max();
+    intT numberOfSuccessfulDeletions = 0;
     if (isSymmetric()) {
       return deleteEdges_symmetric(deletionsData, updatedVertices, debugFlag);
     }
@@ -922,28 +832,30 @@ public:
 #ifdef EDGEDATA
     EdgeData *edgeDataWeight = newA(EdgeData, deletionsData.numberOfDeletions);
 #endif
-    intE *outDegree = newA(intE, n);
-    intE *inDegree = newA(intE, n);
+    intT edgeArrayIndex = 0;
+    // TODO: Remove these when we compress into a single loop
+    intT *outDegree = newA(intT, n);
+    intT *inDegree = newA(intT, n);
 
-    parallel_for(uintV i = 0; i < n; i++) {
+    parallel_for(intT i = 0; i < n; i++) {
       if (deletionsData.updatedVertices[i] == 1) {
         outDegree[i] = V[i].getOutDegree();
         inDegree[i] = V[i].getInDegree();
       }
     }
 
-    parallel_for(uintV i = 0; i < n; i++) {
+    parallel_for(intT i = 0; i < n; i++) {
       if (deletionsData.updatedVertices[i] == 1) {
         edgesToDelete *currentEdgesToDelete =
             &deletionsData.getEdgeDeletionData(i);
-        vector<uintV> &outEdgesToDelete =
+        vector<uintE> &outEdgesToDelete =
             currentEdgesToDelete->outEdgesToDelete;
-        parallel_for(intE j = 0; j < outEdgesToDelete.size(); j++) {
-          uintV targetOutNgh = outEdgesToDelete[j];
-          uintV *currOutEdges = outEdges[i];
+        parallel_for(intT j = 0; j < outEdgesToDelete.size(); j++) {
+          uintT targetOutNgh = outEdgesToDelete[j];
+          uintE *currOutEdges = outEdges[i];
 
           bool deletionSuccessful = false;
-          for (intE k = 0; k < outDegree[i]; k++) {
+          for (intT k = 0; k < outDegree[i]; k++) {
             if (targetOutNgh == currOutEdges[k]) {
               bool casSuccessful;
               do {
@@ -962,17 +874,17 @@ public:
       }
     }
 
-    parallel_for(uintV i = 0; i < n; i++) {
+    parallel_for(intT i = 0; i < n; i++) {
       if (deletionsData.updatedVertices[i] == 1) {
         edgesToDelete *currentEdgesToDelete =
             &deletionsData.getEdgeDeletionData(i);
-        vector<uintV> &inEdgesToDelete = currentEdgesToDelete->inEdgesToDelete;
-        parallel_for(intE j = 0; j < inEdgesToDelete.size(); j++) {
-          uintV targetInNgh = inEdgesToDelete[j];
-          uintV *currInEdges = inEdges[i];
+        vector<uintE> &inEdgesToDelete = currentEdgesToDelete->inEdgesToDelete;
+        parallel_for(intT j = 0; j < inEdgesToDelete.size(); j++) {
+          uintT targetInNgh = inEdgesToDelete[j];
+          uintE *currInEdges = inEdges[i];
 
           bool deletionSuccessful = false;
-          for (intE k = 0; k < inDegree[i]; k++) {
+          for (intT k = 0; k < inDegree[i]; k++) {
             if (targetInNgh == currInEdges[k]) {
               bool casSuccessful;
               do {
@@ -992,40 +904,32 @@ public:
       }
     }
 
-    parallel_for(uintV i = 0; i < n; i++) {
+    parallel_for(intT i = 0; i < n; i++) {
       if (deletionsData.updatedVertices[i] == 1) {
-        intE numberOfDeletions = 0;
-        uintV *currOutEdges = outEdges[i];
-        uintV *currInEdges = inEdges[i];
-#ifdef EDGEDATA
-        EdgeData *currOutEdgeData = outEdgeData[i];
-        EdgeData *currInEdgeData = inEdgeData[i];
-#endif
+        intT numberOfDeletions = 0;
+        uintE *currOutEdges = outEdges[i];
+        uintE *currInEdges = inEdges[i];
 
         edgesToDelete *currentEdgesToDelete =
             &deletionsData.getEdgeDeletionData(i);
-        vector<uintV> &outEdgesToDelete =
-            currentEdgesToDelete->outEdgesToDelete;
         intE last_non_deleted_index;
-        intE to_delete_count = outEdgesToDelete.size();
+        vector<uintE> &outEdgesToDelete =
+            currentEdgesToDelete->outEdgesToDelete;
+        long to_delete_count = outEdgesToDelete.size();
 
-        intE actual_to_delete_count = 0;
-        for (intE i = 0; i < to_delete_count; i++) {
+        long actual_to_delete_count = 0;
+        for (long i = 0; i < to_delete_count; i++) {
           if (outEdgesToDelete[i] != maxValue) {
             actual_to_delete_count++;
           }
         }
-        intE total_swapped = 0;
+        int total_swapped = 0;
 
         for (intE k = outDegree[i] - 1,
                   last_non_deleted_index = outDegree[i] - 1;
              k >= 0; k--) {
           if (currOutEdges[k] == maxValue) {
             currOutEdges[k] = currOutEdges[last_non_deleted_index];
-#ifdef EDGEDATA
-            currOutEdgeData[k].del();
-            currOutEdgeData[k] = currOutEdgeData[last_non_deleted_index];
-#endif
             last_non_deleted_index--;
             total_swapped++;
           }
@@ -1037,10 +941,10 @@ public:
         V[i].setOutDegree(outDegree[i] - total_swapped);
         pbbs::fetch_and_add(&numberOfSuccessfulDeletions, total_swapped);
 
-        vector<uintV> &inEdgesToDelete = currentEdgesToDelete->inEdgesToDelete;
+        vector<uintE> &inEdgesToDelete = currentEdgesToDelete->inEdgesToDelete;
         to_delete_count = inEdgesToDelete.size();
         actual_to_delete_count = 0;
-        for (intE i = 0; i < to_delete_count; i++) {
+        for (long i = 0; i < to_delete_count; i++) {
           if (inEdgesToDelete[i] != maxValue) {
             actual_to_delete_count++;
           }
@@ -1052,10 +956,6 @@ public:
              k >= 0; k--) {
           if (currInEdges[k] == maxValue) {
             currInEdges[k] = currInEdges[last_non_deleted_index];
-#ifdef EDGEDATA
-            currInEdgeData[k].del();
-            currInEdgeData[k] = currInEdgeData[last_non_deleted_index];
-#endif
             last_non_deleted_index--;
             total_swapped++;
           }
@@ -1066,21 +966,16 @@ public:
         V[i].setInDegree(inDegree[i] - total_swapped);
       }
     }
-    intE edgeArrayIndex = 0;
 
-    for (uintV i = 0; i < n; i++) {
+    for (intT i = 0; i < n; i++) {
       if (deletionsData.updatedVertices[i] == 1) {
         edgesToDelete *currentEdgesToDelete =
             &deletionsData.getEdgeDeletionData(i);
-        vector<uintV> &outEdgesToDelete =
+        vector<uintT> &outEdgesToDelete =
             currentEdgesToDelete->outEdgesToDelete;
-#ifdef EDGEDATA
-        vector<EdgeData *> &outEdgeDataToDelete =
-            currentEdgesToDelete->outEdgeDataToDelete;
-#endif
         for (uintE j = 0; j < outEdgesToDelete.size(); j++) {
           if (outEdgesToDelete[j] != maxValue) {
-            intE edIndex = edgeArrayIndex++;
+            intT edIndex = edgeArrayIndex++;
             ED[edIndex].source = i;
             ED[edIndex].destination = outEdgesToDelete[j];
 #ifdef EDGEDATA
@@ -1101,10 +996,10 @@ public:
     free(inDegree);
     uintE newSize = m - numberOfSuccessfulDeletions;
     m = newSize;
-#ifdef EDGEDATA
-    return edgeArray(ED, edgeDataWeight, numberOfSuccessfulDeletions, n);
-#else
+#ifndef EDGEDATA
     return edgeArray(ED, edgeArrayIndex, n);
+#else
+    return edgeArray(ED, edgeDataWeight, numberOfSuccessfulDeletions, n);
 #endif
   }
   uintEE getNumberOfEdges() { return m; }
@@ -1112,42 +1007,21 @@ public:
   void del() {
 
     if (outEdges == NULL) {
-      for (uintV i = 0; i < n; i++)
+      for (unsigned long i = 0; i < n; i++)
         V[i].del();
     } else {
-      parallel_for(uintV i = 0; i < n; i++) { 
-#ifdef EDGEDATA
-        parallel_for(intE j = 0; j < V[i].getOutDegree(); j++) {
-          outEdgeData[i][j].del();
-        }
-        free(outEdgeData[i]);
-#endif
-        free(outEdges[i]); 
-      }
+      parallel_for(unsigned long i = 0; i < n; i++) { free(outEdges[i]); }
       free(outEdges);
-#ifdef EDGEDATA
-      free(outEdgeData);
-#endif
     }
     if (outEdgesArraySize != NULL) {
       free(outEdgesArraySize);
     }
 
-    if (inEdges != NULL) {
-      parallel_for(uintV i = 0; i < n; i++) { 
-#ifdef EDGEDATA
-        parallel_for(intE j = 0; j < V[i].getInDegree(); j++) {
-          inEdgeData[i][j].del();
-        }
-        free(inEdgeData[i]);
-#endif
-        free(inEdges[i]); }
-      free(inEdges);
-#ifdef EDGEDATA
-      free(inEdgeData);
-#endif
-    }
     free(V);
+    if (inEdges != NULL) {
+      parallel_for(unsigned long i = 0; i < n; i++) { free(inEdges[i]); }
+      free(inEdges);
+    }
 
     if (inEdgesArraySize != NULL) {
       free(inEdgesArraySize);
@@ -1164,17 +1038,17 @@ public:
 
 template <class vertex> struct graph {
   vertex *V;
-  uintV n;
-  uintE m;
+  unsigned long n;
+  unsigned long m;
   bool transposed;
   bool symmetric;
   uintE *flags;
   Deletable *D;
 
-  graph(vertex *_V, uintV _n, uintE _m, Deletable *_D)
+  graph(vertex *_V, unsigned long _n, unsigned long _m, Deletable *_D)
       : V(_V), n(_n), m(_m), D(_D), flags(NULL), transposed(0), symmetric(0) {}
 
-  graph(vertex *_V, uintV _n, uintE _m, Deletable *_D,
+  graph(vertex *_V, unsigned long _n, unsigned long _m, Deletable *_D,
         uintE *_flags)
       : V(_V), n(_n), m(_m), D(_D), flags(_flags), transposed(0), symmetric(0) {
   }
@@ -1194,7 +1068,7 @@ template <class vertex> struct graph {
 
   bool isSymmetric() { return symmetric; }
 
-  void addVertices(uintV maxVertex) {
+  void addVertices(uintT maxVertex) {
     if (n <= maxVertex) {
       cout << "max vertex: " << maxVertex << endl;
       V = (vertex *)D->updateVertices(maxVertex);
@@ -1216,13 +1090,9 @@ template <class vertex> struct graph {
   }
 
   void printEdges(string outputFilePath) {
-#ifdef EDGEDATA
-    // TODO: Add support for printing weighted edges
-    return;
-#endif
     cout << "M Edges: " << m << endl;
-    uintV numEdgesFromDegree = 0;
-    for (uintV i = 0; i < n; i++) {
+    uintT numEdgesFromDegree = 0;
+    for (uintT i = 0; i < n; i++) {
       numEdgesFromDegree += V[i].getOutDegree();
     }
 
@@ -1232,28 +1102,36 @@ template <class vertex> struct graph {
       abort();
     }
 
+    parallel_for(intT i = 0; i < n; i++) {
+      quickSort(V[i].getOutNeighbors(), V[i].getOutDegree(), SimpleCmp<intT>());
+    }
+
+    parallel_for(intT i = 0; i < n; i++) {
+      quickSort(V[i].getInNeighbors(), V[i].getInDegree(), SimpleCmp<intT>());
+    }
+
     ofstream outputFile;
     outputFile.open(outputFilePath, ios::out);
     outputFile << setprecision(2);
-    for (uintV i = 0; i < n; ++i) {
+    for (uintT i = 0; i < n; ++i) {
       vertex &currentVertex = V[i];
       auto d = currentVertex.getOutDegree();
       if (d != 0) {
-        insertionSort(currentVertex.getOutNeighbors(), d, ascendingF<uintV>());
+        insertionSort(currentVertex.getOutNeighbors(), d, ascendingF<uintT>());
       }
-      for (intE j = 0; j < currentVertex.getOutDegree(); j++)
+      for (uintE j = 0; j < currentVertex.getOutDegree(); j++)
         outputFile << i << " " << currentVertex.getOutNeighbor(j) << "\n";
     }
     outputFile.close();
     outputFile.open(outputFilePath + "_inEdges", ios::out);
     outputFile << setprecision(2);
-    for (uintV i = 0; i < n; ++i) {
+    for (uintT i = 0; i < n; ++i) {
       vertex &currentVertex = V[i];
       auto d = currentVertex.getInDegree();
       if (d != 0) {
-        insertionSort(currentVertex.getInNeighbors(), d, ascendingF<uintV>());
+        insertionSort(currentVertex.getInNeighbors(), d, ascendingF<uintT>());
       }
-      for (intE j = 0; j < currentVertex.getInDegree(); j++) {
+      for (uintE j = 0; j < currentVertex.getInDegree(); j++) {
         outputFile << i << " " << currentVertex.getInNeighbor(j) << "\n";
       }
       // outputFile << currentVertex.getInNeighbor(j) << " " << i << "\n";

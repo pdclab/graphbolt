@@ -29,14 +29,6 @@
 
 enum UpdateType { edge_addition_enum, edge_deletion_enum };
 
-#ifdef EDGEDATA
-#else
-struct EmptyEdgeData{};
-typedef EmptyEdgeData EdgeData;
-
-EdgeData emptyEdgeData;
-#endif
-
 // ======================================================================
 // AGGREGATEVALUE AND VERTEXVALUE INITIALIZATION
 // ======================================================================
@@ -44,14 +36,14 @@ EdgeData emptyEdgeData;
 // like sum and 1 for product.
 template <class AggregationValueType, class GlobalInfoType>
 inline void
-initializeAggregationValue(const uintV &v,
+initializeAggregationValue(const long &v,
                            AggregationValueType &v_aggregation_value,
                            const GlobalInfoType &global_info);
 
 // Set the initial value of the vertex. For example, initial value of vertex is
 // set as 1 for PageRank
 template <class VertexValueType, class GlobalInfoType>
-inline void initializeVertexValue(const uintV &v,
+inline void initializeVertexValue(const long &v,
                                   VertexValueType &v_vertex_value,
                                   const GlobalInfoType &global_info);
 
@@ -71,7 +63,7 @@ template <class VertexValueType> inline VertexValueType &vertexValueIdentity();
 // should be active and in second iteration, all partition1 vertices should be
 // active
 template <class GlobalInfoType>
-inline bool forceActivateVertexForIteration(const uintV &v, int iter,
+inline bool forceActivateVertexForIteration(const long &v, int iter,
                                             const GlobalInfoType &global_info);
 
 // By default, all the vertices which receive some change from its inNeighbor
@@ -80,7 +72,7 @@ inline bool forceActivateVertexForIteration(const uintV &v, int iter,
 // iteration. This function is used to force the computation of a vertex at a
 // given iteration.
 template <class GlobalInfoType>
-inline bool forceComputeVertexForIteration(const uintV &v, int iter,
+inline bool forceComputeVertexForIteration(const long &v, int iter,
                                            const GlobalInfoType &global_info);
 
 // Usually, for the first iteration, the vertices propagate the entire value to
@@ -137,7 +129,7 @@ removeFromAggregationAtomic(const AggregationValueType &incoming_value,
 // vertex_value_prev.
 template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
-inline void computeFunction(const uintV &v,
+inline void computeFunction(const long &v,
                             const AggregationValueType &aggregation_value,
                             const VertexValueType &vertex_value_prev,
                             VertexValueType &vertex_value_curr,
@@ -174,20 +166,19 @@ inline bool isChanged(const VertexValueType &vertex_value_prev,
 template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
 inline void sourceChangeInContribution(
-    const uintV &v, AggregationValueType &v_change_in_contribution,
+    const long &v, AggregationValueType &v_change_in_contribution,
     const VertexValueType &v_value_prev, const VertexValueType &v_value_curr,
     GlobalInfoType &static_info);
 // For a vertex u, given its value in current iteration and its computed
 // change_in_contribution, update change_in_contribution for a given edge (u,
-// v). For example, in Label Propagation, the edge_data of (u, v) is
+// v). For example, in Label Propagation, the edge_weight of (u, v) is
 // multiplied to the change_in_contribution of each factor . Return false if the
 // value from u should not be included in the aggregation value of v. Return
 // true otherwise. NOTE: The changes to change_in_contribution should be made in
 // place. No LOCKS/CAS required for updating u_change_in_contribution
-template <class AggregationValueType, class VertexValueType, class EdgeDataType,
+template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
-inline bool edgeFunction(const uintV &u, const uintV &v,
-                         const EdgeDataType &edge_data,
+inline bool edgeFunction(const long &u, const long &v,
                          const VertexValueType &u_value,
                          AggregationValueType &u_change_in_contribution,
                          GlobalInfoType &global_info);
@@ -205,7 +196,7 @@ inline bool edgeFunction(const uintV &u, const uintV &v,
 // graph version in the global_info object. Example: out_degree of all vertices
 // has to be stored for a given graph.
 template <class GlobalInfoType>
-inline void hasSourceChangedByUpdate(const uintV &v, UpdateType update_type,
+inline void hasSourceChangedByUpdate(const long &v, UpdateType update_type,
                                      bool &activateInCurrentIteration,
                                      GlobalInfoType &global_info,
                                      GlobalInfoType &global_info_old);
@@ -216,8 +207,7 @@ inline void hasSourceChangedByUpdate(const uintV &v, UpdateType update_type,
 // algorithm/application) for a given graph version in the global_info object.
 // Example: out_degree of all vertices has to be stored for a given graph.
 template <class GlobalInfoType>
-inline void hasDestinationChangedByUpdate(const uintV &v,
-                                          UpdateType update_type,
+inline void hasDestinationChangedByUpdate(const long &v, UpdateType update_type,
                                           bool &activateInCurrentIteration,
                                           GlobalInfoType &global_info,
                                           GlobalInfoType &global_info_old);
@@ -227,13 +217,13 @@ inline void hasDestinationChangedByUpdate(const uintV &v,
 // ======================================================================
 // Helper function for printing additional data while printing to output file
 template <class GlobalInfoType>
-void printAdditionalData(ofstream &output_file, const uintV &v,
+void printAdditionalData(ofstream &output_file, const long &v,
                          GlobalInfoType &info);
 
 // Helper function for printing the dependency data - Useful for debugging
 template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
-void printHistory(const uintV &v, AggregationValueType **agg_values,
+void printHistory(const long &v, AggregationValueType **agg_values,
                   VertexValueType **vertex_values, GlobalInfoType &info,
                   int history_iterations);
 
@@ -475,7 +465,7 @@ public:
   // ======================================================================
   // PROCESS VERTEX ADDITION
   // ======================================================================
-  void processVertexAddition(uintV maxVertex) {
+  void processVertexAddition(long maxVertex) {
     n_old = n;
     n = maxVertex + 1;
     resizeDependencyData();
@@ -515,7 +505,7 @@ public:
       output_file.open(curr_output_file_path, ios::out);
       output_file << fixed;
       output_file << setprecision(VAL_PRECISION2);
-      for (uintV v = 0; v < n; v++) {
+      for (long v = 0; v < n; v++) {
         output_file << v << " " << my_graph.V[v].getInDegree() << " "
                     << my_graph.V[v].getOutDegree() << " ";
         printAdditionalData(output_file, v, global_info);
@@ -553,7 +543,7 @@ public:
     // Initilaize frontier
     // The other values are already initialized with the default values during
     // initialization of the GraphBoltEngineSimple3
-    parallel_for(uintV v = 0; v < n; v++) {
+    parallel_for(long v = 0; v < n; v++) {
       frontier_next[v] = 0;
       frontier_curr[v] = 0;
       frontier_curr[v] = forceActivateVertexForIteration(v, 1, global_info);
@@ -580,7 +570,7 @@ public:
       }
     }
     // Update approximate_time_for_prev_iteration for next iteration
-    parallel_for(uintV v = 0; v < n; v++) {
+    parallel_for(int v = 0; v < n; v++) {
       if (isChanged(vertex_values[iter][v], vertex_values[iter - 1][v],
                     global_info) ||
           forceActivateVertexForIteration(v, iter + 1, global_info)) {
@@ -592,7 +582,7 @@ public:
       }
     }
     long active_edges =
-        sequence::plusReduceDegree(my_graph.V, frontier_next, (long)n);
+        sequence::plusReduceDegree(my_graph.V, frontier_next, n);
     adaptive_executor.updateApproximateTimeForEdges(active_edges);
 
     return false;
@@ -601,7 +591,7 @@ public:
   int performSwitch(int iter) {
     // If called at beginning of iteration, use iter-1 and iter-2 to decide
     // whether a vertex is active
-    parallel_for(uintV v = 0; v < n; v++) {
+    parallel_for(int v = 0; v < n; v++) {
       if (isChanged(vertex_values[iter - 1][v], vertex_values[iter - 2][v],
                     global_info) ||
           forceActivateVertexForIteration(v, iter, global_info)) {

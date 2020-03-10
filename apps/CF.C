@@ -19,19 +19,12 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#ifdef EDGEDATA
-// NOTE: The edge data type header file should then be included as the first header
-// file at the top of the user program.
-#include "CF_edgeData.h"
-#endif
-
 #include "../core/common/matrix.h"
 #include "../core/common/utils.h"
 #include "../core/graphBolt/GraphBoltEngine_complex.h"
 #include "../core/main.h"
 #include <math.h>
 
-#define MOD_VAL_CF 0.00190000001000000000
 #define DEBUG_ROUND 100
 #define PARTITION_FILE_DEFAULT ""
 #define PARITION_INIT_3 1
@@ -103,12 +96,12 @@ ostream &operator<<(ostream &os, const CFVertexData &vdata) {
 }
 
 // ======================================================================
-// CFINFO
+// CFINFO 
 // ======================================================================
 class CFGlobalInfo {
 public:
   // Should I just use vectors for this?
-  uintV n;
+  long n;
   double lamda_identity_matrix[NUMBER_OF_FACTORS * NUMBER_OF_FACTORS];
   double epsilon;
   double mod_val;
@@ -116,13 +109,13 @@ public:
   long random_init_seed;
 
   bool *partition_flags;
-  uintV partition_flags_array_size;
+  long partition_flags_array_size;
 
   CFGlobalInfo()
-      : n(0), epsilon(0), random_init_seed(DEFAULT_SEED), mod_val(MOD_VAL_CF),
+      : n(0), epsilon(0), random_init_seed(DEFAULT_SEED), mod_val(MOD_VAL),
         use_random_init(false) {}
 
-  CFGlobalInfo(uintV _n, double _epsilon, double _mod_val)
+  CFGlobalInfo(long _n, double _epsilon, double _mod_val)
       : n(_n), epsilon(_epsilon), random_init_seed(DEFAULT_SEED),
         mod_val(_mod_val), use_random_init(false) {
     if (n > 0) {
@@ -143,10 +136,7 @@ public:
     random_init_seed = t_seed;
   }
 
-#ifdef EDGEDATA
-#else
   inline double rating(uintEE i, uintEE j) { return fmod((i + j), mod_val); }
-#endif
 
   void createPartition(string partition_file_path) {
     setPartitionsFromFile(partition_file_path);
@@ -166,7 +156,7 @@ public:
     words W = stringToWords(S.A, S.n);
     long len = W.m;
     // Initialize to 0
-    parallel_for(uintV i = 0; i < partition_flags_array_size; i++) {
+    parallel_for(long i = 0; i < partition_flags_array_size; i++) {
       partition_flags[i] = 0;
     }
     parallel_for(long i = 0; i < len; i++) {
@@ -191,11 +181,11 @@ public:
     }
   }
 
-  inline bool belongsToPartition1(uintV i) const {
+  inline bool belongsToPartition1(uintEE i) const {
     return (i < partition_flags_array_size) ? partition_flags[i] : i % 2;
   }
 
-  inline bool belongsToPartition2(uintV i) const {
+  inline bool belongsToPartition2(uintEE i) const {
     return (i < partition_flags_array_size) ? (!partition_flags[i]) : !(i % 2);
   }
 
@@ -230,7 +220,7 @@ public:
 
   void processUpdates(edgeArray &edge_additions, edgeArray &edge_deletions) {
     if (edge_additions.maxVertex >= n) {
-      uintV n_old = n;
+      long n_old = n;
       n = edge_additions.maxVertex + 1;
     }
   }
@@ -251,14 +241,14 @@ CFVertexAggregationData aggregation_value_identity;
 CFVertexData vertex_value_identity;
 
 template <class AggregationValueType, class GlobalInfoType>
-inline void initializeAggregationValue(const uintV &v,
+inline void initializeAggregationValue(const long &v,
                                        AggregationValueType &v_vertex_value,
                                        const GlobalInfoType &global_info) {
   v_vertex_value = initial_aggregation_value;
 }
 
 template <class VertexValueType, class GlobalInfoType>
-inline void initializeVertexValue(const uintV &v,
+inline void initializeVertexValue(const long &v,
                                   VertexValueType &v_vertex_value,
                                   const GlobalInfoType &global_info) {
   for (long i = 0; i < NUMBER_OF_FACTORS; i++) {
@@ -286,7 +276,7 @@ template <class VertexValueType> inline VertexValueType &vertexValueIdentity() {
 // ACTIVATE VERTEX/COMPUTE VERTEX FOR A GIVEN ITERATION
 // ======================================================================
 template <class GlobalInfoType>
-inline bool forceActivateVertexForIteration(const uintV &v, int iter,
+inline bool forceActivateVertexForIteration(const long &v, int iter,
                                             const GlobalInfoType &global_info) {
   bool ret = false;
   if ((iter == 1) && global_info.belongsToPartition2(v)) {
@@ -300,7 +290,7 @@ inline bool forceActivateVertexForIteration(const uintV &v, int iter,
 }
 
 template <class GlobalInfoType>
-inline bool forceComputeVertexForIteration(const uintV &v, int iter,
+inline bool forceComputeVertexForIteration(const long &v, int iter,
                                            const GlobalInfoType &global_info) {
   bool ret = false;
   if ((iter == 1) && global_info.belongsToPartition1(v)) {
@@ -364,7 +354,7 @@ removeFromAggregationAtomic(const AggregationValueType &incoming_value,
 // ======================================================================
 template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
-inline void computeFunction(const uintV &v,
+inline void computeFunction(const long &v,
                             const AggregationValueType &aggregation_value,
                             const VertexValueType &vertex_value_curr,
                             VertexValueType &vertex_value_next,
@@ -390,8 +380,8 @@ inline void computeFunction(const uintV &v,
 
 template <class VertexValueType, class GlobalInfoType>
 inline bool isChanged(const VertexValueType &value_curr,
-                      const VertexValueType &value_next,
-                      GlobalInfoType &global_info) {
+                         const VertexValueType &value_next,
+                         GlobalInfoType &global_info) {
   for (int i = 0; i < NUMBER_OF_FACTORS; i++) {
     if (fabs(value_next.latent_factors[i] - value_curr.latent_factors[i]) >
         global_info.epsilon) {
@@ -407,14 +397,13 @@ inline bool isChanged(const VertexValueType &value_curr,
 template <class AggregationValueType, class VertexValueType,
           class StaticInfoType>
 inline void sourceChangeInContribution(
-    const uintV &v, AggregationValueType &v_change_in_contribution,
+    const long &v, AggregationValueType &v_change_in_contribution,
     const VertexValueType &v_value_prev, const VertexValueType &v_value_curr,
     StaticInfoType &global_info) {}
 
-template <class AggregationValueType, class VertexValueType, class EdgeDataType,
+template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
-inline bool edgeFunction(const uintV &u, const uintV &v,
-                         const EdgeDataType &edge_weight,
+inline bool edgeFunction(const long &u, const long &v,
                          const VertexValueType &u_value,
                          AggregationValueType &u_change_in_contribution,
                          GlobalInfoType &global_info) {
@@ -422,11 +411,7 @@ inline bool edgeFunction(const uintV &u, const uintV &v,
       global_info.belongsToPartition1(v)) {
     return false;
   }
-#ifdef EDGEDATA
-  double edge_rating = edge_weight.weight;
-#else
   double edge_rating = global_info.rating(u, v);
-#endif
   double u_transpose_product[NUMBER_OF_FACTORS * NUMBER_OF_FACTORS];
   getTransposeProduct<double>(u_value.latent_factors, NUMBER_OF_FACTORS, 1,
                               u_change_in_contribution.inverse_component,
@@ -438,10 +423,9 @@ inline bool edgeFunction(const uintV &u, const uintV &v,
   return true;
 }
 
-template <class AggregationValueType, class VertexValueType, class EdgeDataType,
+template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
-inline bool edgeFunctionDelta(const uintV &u, const uintV &v,
-                              const EdgeDataType &edge_weight,
+inline bool edgeFunctionDelta(const long &u, const long &v,
                               const VertexValueType &u_value_prev,
                               const VertexValueType &u_value_curr,
                               AggregationValueType &u_change_in_contribution,
@@ -450,11 +434,7 @@ inline bool edgeFunctionDelta(const uintV &u, const uintV &v,
       global_info.belongsToPartition1(v)) {
     return false;
   }
-#ifdef EDGEDATA
-  double edge_rating = edge_weight.weight;
-#else
   double edge_rating = global_info.rating(u, v);
-#endif
   double u_transpose_product_prev[NUMBER_OF_FACTORS * NUMBER_OF_FACTORS];
   double u_transpose_product_curr[NUMBER_OF_FACTORS * NUMBER_OF_FACTORS];
   getTransposeProduct<double>(u_value_curr.latent_factors, NUMBER_OF_FACTORS, 1,
@@ -480,13 +460,12 @@ inline bool edgeFunctionDelta(const uintV &u, const uintV &v,
 // INCREMENTAL COMPUTING / DETERMINING FRONTIER
 // ======================================================================
 template <class GlobalInfoType>
-inline void hasSourceChangedByUpdate(const uintV &v, UpdateType update_type,
+inline void hasSourceChangedByUpdate(const long &v, UpdateType update_type,
                                      bool &activateInCurrentIteration,
                                      GlobalInfoType &global_info,
                                      GlobalInfoType &global_info_old) {}
 template <class GlobalInfoType>
-inline void hasDestinationChangedByUpdate(const uintV &v,
-                                          UpdateType update_type,
+inline void hasDestinationChangedByUpdate(const long &v, UpdateType update_type,
                                           bool &activateInCurrentIteration,
                                           GlobalInfoType &global_info,
                                           GlobalInfoType &global_info_old) {}
@@ -496,25 +475,25 @@ inline void hasDestinationChangedByUpdate(const uintV &v,
 // ======================================================================
 template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
-void printHistory(const uintV &v, AggregationValueType **agg_values,
+void printHistory(const long &v, AggregationValueType **agg_values,
                   VertexValueType **actual_values, GlobalInfoType &info,
                   int history_iterations) {
   for (int iter = 0; iter < history_iterations; iter++) {
     cout << iter << ",";
-    for (int i = 0; i < NUMBER_OF_FACTORS; i++) {
-      for (int j = 0; j < NUMBER_OF_FACTORS; j++) {
+    for (long i = 0; i < NUMBER_OF_FACTORS; i++) {
+      for (long j = 0; j < NUMBER_OF_FACTORS; j++) {
         cout << agg_values[iter][v].inverse_component[i * NUMBER_OF_FACTORS + j]
              << ",";
       }
     }
-    for (int i = 0; i < NUMBER_OF_FACTORS; i++) {
+    for (long i = 0; i < NUMBER_OF_FACTORS; i++) {
       cout << actual_values[iter][v].latent_factors[i] << ",";
     }
     cout << "\n";
   }
 }
 template <class GlobalInfoType>
-void printAdditionalData(ofstream &output_file, const uintV &v,
+void printAdditionalData(ofstream &output_file, const long &v,
                          GlobalInfoType &info) {
   output_file << info.belongsToPartition1(v) << " ";
 }
@@ -524,13 +503,13 @@ void printAdditionalData(ofstream &output_file, const uintV &v,
 // ======================================================================
 template <class vertex> void compute(graph<vertex> &G, commandLine config) {
   // cout << setprecision(TIME_PRECISION);
-  uintV n = G.n;
+  long n = G.n;
   // cout << setprecision(VAL_PRECISION);
   int max_iters = config.getOptionLongValue("-maxIters", 10);
   max_iters += 1;
   string partitions_file_path =
       config.getOptionValue("-partitionsFile", PARTITION_FILE_DEFAULT);
-  double mod_val = config.getOptionDoubleValue("-modVal", MOD_VAL_CF);
+  double mod_val = config.getOptionDoubleValue("-modVal", MOD_VAL);
   bool rand_init = config.getOption("-randInit");
   double lambda = config.getOptionDoubleValue("-lambda", 0.0001); // lambda
   double epsilon = 0.010000000000000000000000000d;

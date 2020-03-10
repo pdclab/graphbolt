@@ -29,14 +29,16 @@
 #include <string>
 
 /**
- * Used to extract values from the binary stream
+ * Used to extract values from the binary stream (need to figure out
+ * how to do this for binary edge weights though :/)
  **/
 struct StreamEdge {
-  uintV source;
-  uintV destination;
   char edgeType;
+  long source;
+  long destination;
 };
 
+// TODO : Determine what should be abstracted and stuff
 // TODO : Determine what should be abstracted and stuff
 template <class vertex> class Ingestor {
 
@@ -155,7 +157,7 @@ public:
     }
     edge *EA = newA(edge, numEdges);
     edge *ED = newA(edge, numEdges);
-    uintV source, destination;
+    uintT source, destination;
 #ifdef EDGEDATA
     EdgeData *edgeWeightEA = newA(EdgeData, numEdges);
     EdgeData *edgeWeightED = newA(EdgeData, numEdges);
@@ -166,14 +168,14 @@ public:
     string line;
     vector<string> tokens;
     long lineCount = 0;
-    uintV maxVertex = 0;
+    uintT maxVertex = 0;
 
-#ifdef EDGEDATA
-    intWeights *uncheckedEA = newA(intWeights, numEdges);
-    intWeights *uncheckedED = newA(intWeights, numEdges);
-#else
+#ifndef EDGEDATA
     intPair *uncheckedEA = newA(intPair, numEdges);
     intPair *uncheckedED = newA(intPair, numEdges);
+#else
+    intWeights *uncheckedEA = newA(intWeights, numEdges);
+    intWeights *uncheckedED = newA(intWeights, numEdges);
 #endif
     long uncheckedEACount = 0;
     long uncheckedEDCount = 0;
@@ -197,7 +199,7 @@ public:
       }
       uncheckedEACount = 0;
       uncheckedEDCount = 0;
-      for (long i = 0; i < edgesToRead; i++) {
+      for (uintT i = 0; i < edgesToRead; i++) {
         long long numberOfBytesAvail = inputFile.rdbuf()->in_avail();
         if (!fixedBatchFlag && numberOfBytesAvail <= 0) {
           if (i == 0) {
@@ -229,7 +231,21 @@ public:
         while (ss >> buf) {
           tokens.push_back(buf);
         }
-#ifdef EDGEDATA
+#ifndef EDGEDATA
+        if (tokens.size() == 3) {
+          edgeType = tokens[0].at(0);
+          source = stoi(tokens[1]);
+          destination = stoi(tokens[2]);
+
+          if (edgeType == 'a') {
+            uncheckedEA[uncheckedEACount] = make_pair(source, destination);
+            uncheckedEACount++;
+          } else if (edgeType == 'd') {
+            uncheckedED[uncheckedEDCount] = make_pair(source, destination);
+            uncheckedEDCount++;
+          }
+        }
+#else
         if (tokens.size() == 4) {
           edgeType = tokens[0].at(0);
           source = stoi(tokens[1]);
@@ -251,20 +267,6 @@ public:
             uncheckedEDCount++;
           }
         }
-#else
-        if (tokens.size() == 3) {
-          edgeType = tokens[0].at(0);
-          source = stoi(tokens[1]);
-          destination = stoi(tokens[2]);
-
-          if (edgeType == 'a') {
-            uncheckedEA[uncheckedEACount] = make_pair(source, destination);
-            uncheckedEACount++;
-          } else if (edgeType == 'd') {
-            uncheckedED[uncheckedEDCount] = make_pair(source, destination);
-            uncheckedEDCount++;
-          }
-        }
 #endif
         else {
           std::cout << "Incorrect input format \n" << std::endl;
@@ -275,12 +277,12 @@ public:
       uncheckedEACountOrig = uncheckedEACount;
       uncheckedEDCountOrig = uncheckedEDCount;
 
-#ifdef EDGEDATA
-      quickSort(uncheckedEA, uncheckedEACount, tripleBothCmp());
-      quickSort(uncheckedED, uncheckedEDCount, tripleBothCmp());
-#else
+#ifndef EDGEDATA
       quickSort(uncheckedEA, uncheckedEACount, pairBothCmp<uintE>());
       quickSort(uncheckedED, uncheckedEDCount, pairBothCmp<uintE>());
+#else
+      quickSort(uncheckedEA, uncheckedEACount, tripleBothCmp());
+      quickSort(uncheckedED, uncheckedEDCount, tripleBothCmp());
 #endif
 
       bool *EAflag = newAWithZero(bool, uncheckedEACount);
@@ -296,41 +298,41 @@ public:
       }
 
       if (!fixedBatchFlag) {
-        long eaIndex = 0;
-        long edIndex = 0;
+        uintT eaIndex = 0;
+        uintT edIndex = 0;
 
         // remove values that cancel out
         while (eaIndex < uncheckedEACount && edIndex < uncheckedEDCount) {
-#ifdef EDGEDATA
+#ifndef EDGEDATA
+          if (uncheckedEA[eaIndex].first == uncheckedED[edIndex].first &&
+              uncheckedEA[eaIndex].second == uncheckedED[edIndex].second)
+#else
           if (uncheckedEA[eaIndex].first == uncheckedED[edIndex].first &&
               uncheckedEA[eaIndex].second.first ==
                   uncheckedED[edIndex].second.first)
-#else
-          if (uncheckedEA[eaIndex].first == uncheckedED[edIndex].first &&
-              uncheckedEA[eaIndex].second == uncheckedED[edIndex].second)
 #endif
           {
             EAflag[eaIndex] = true;
             EDflag[edIndex] = true;
             if (debugFlag) {
-#ifdef EDGEDATA
+#ifndef EDGEDATA
+              cerr << "CANCELLED: " << uncheckedED[edIndex].first << "\t"
+                   << uncheckedED[edIndex].second << "\n";
+#else
               cerr << "CANCELLED: " << uncheckedED[edIndex].first << "\t"
                    << uncheckedED[edIndex].second.first << "\t"
                    << uncheckedED[edIndex].second.second << "\n";
-#else
-              cerr << "CANCELLED: " << uncheckedED[edIndex].first << "\t"
-                   << uncheckedED[edIndex].second << "\n";
 #endif
             }
             eaIndex++;
             edIndex++;
             cancelledEdges++;
           } else if (uncheckedEA[eaIndex].first == uncheckedED[edIndex].first) {
-#ifdef EDGEDATA
+#ifndef EDGEDATA
+            if (uncheckedEA[eaIndex].second < uncheckedED[edIndex].second)
+#else
             if (uncheckedEA[eaIndex].second.first <
                 uncheckedED[edIndex].second.first)
-#else
-            if (uncheckedEA[eaIndex].second < uncheckedED[edIndex].second)
 #endif
             {
               eaIndex++;
@@ -346,12 +348,8 @@ public:
       }
 
       // remove all EdgeDeletions >= G.n as they don't exist in the graph
-      parallel_for(long i = 0; i < uncheckedEDCount; i++) {
-#ifdef EDGEDATA
-        if (uncheckedED[i].first >= GA.n || uncheckedED[i].second.first >= GA.n) {
-#else
+      parallel_for(intT i = 0; i < uncheckedEDCount; i++) {
         if (uncheckedED[i].first >= GA.n || uncheckedED[i].second >= GA.n) {
-#endif
           EDflag[i] = true;
         }
       }
@@ -359,25 +357,25 @@ public:
       if (simpleFlag) {
         // check if edge additions edge is already in initial graph
         // we don't want the same edge from two vertices
-        parallel_for(long i = 0; i < uncheckedEACount; i++) {
+        parallel_for(intT i = 0; i < uncheckedEACount; i++) {
           if (EAflag[i] == false && uncheckedEA[i].first < GA.n) {
             vertex sourceV = GA.V[uncheckedEA[i].first];
-            parallel_for(uintV j = 0; j < sourceV.getOutDegree(); j++) {
-#ifdef EDGEDATA
-              if (sourceV.getOutNeighbor(j) == uncheckedEA[i].second.first)
-#else
+            parallel_for(intT j = 0; j < sourceV.getOutDegree(); j++) {
+#ifndef EDGEDATA
               if (sourceV.getOutNeighbor(j) == uncheckedEA[i].second)
+#else
+              if (sourceV.getOutNeighbor(j) == uncheckedEA[i].second.first)
 #endif
               {
                 EAflag[i] = true;
                 if (debugFlag) {
-#ifdef EDGEDATA
+#ifndef EDGEDATA
+                  cerr << "INVALID: " << uncheckedEA[i].first << "\t"
+                       << uncheckedEA[i].second << "\n";
+#else
                   cerr << "INVALID: " << uncheckedEA[i].first << "\t"
                        << uncheckedEA[i].second.first << "\t"
                        << uncheckedEA[i].second.second << "\n";
-#else
-                  cerr << "INVALID: " << uncheckedEA[i].first << "\t"
-                       << uncheckedEA[i].second << "\n";
 #endif
                 }
               }
@@ -387,17 +385,17 @@ public:
       }
 
       if (edgeValidityFlag) {
-        parallel_for(long i = 0; i < uncheckedEDCount; i++) {
+        parallel_for(intT i = 0; i < uncheckedEDCount; i++) {
           // check if edge deletions is valid
           if (EDflag[i] == false) {
             EDflag[i] = true;
             vertex sourceV = GA.V[uncheckedED[i].first];
             // check if this edge is present in the graph
-            parallel_for(uintV j = 0; j < sourceV.getOutDegree(); j++) {
-#ifdef EDGEDATA
-              if (sourceV.getOutNeighbor(j) == uncheckedED[i].second.first)
-#else
+            parallel_for(intT j = 0; j < sourceV.getOutDegree(); j++) {
+#ifndef EDGEDATA
               if (sourceV.getOutNeighbor(j) == uncheckedED[i].second)
+#else
+              if (sourceV.getOutNeighbor(j) == uncheckedED[i].second.first)
 #endif
               {
                 EDflag[i] = false;
@@ -405,13 +403,13 @@ public:
             }
             if (EDflag[i] == true) {
               if (debugFlag) {
-#ifdef EDGEDATA
+#ifndef EDGEDATA
+                cerr << "INVALID: " << uncheckedED[i].first << "\t"
+                     << uncheckedED[i].second << "\n";
+#else
                 cerr << "INVALID: " << uncheckedED[i].first << "\t"
                      << uncheckedED[i].second.first << "\t"
                      << uncheckedED[i].second.second << "\n";
-#else
-                cerr << "INVALID: " << uncheckedED[i].first << "\t"
-                     << uncheckedED[i].second << "\n";
 #endif
               }
             }
@@ -420,35 +418,35 @@ public:
       }
 
       long maxCount = max(uncheckedEACount, uncheckedEDCount);
-      for (long index = 0; index < maxCount; index++) {
+      for (uintT index = 0; index < maxCount; index++) {
         if (index < uncheckedEACount && !EAflag[index]) {
           EA[checkedEACount].source = uncheckedEA[index].first;
-#ifdef EDGEDATA
+#ifndef EDGEDATA
+          EA[checkedEACount].destination = uncheckedEA[index].second;
+#else
           EA[checkedEACount].destination = uncheckedEA[index].second.first;
           new (checkedEdgeWeightEA + checkedEACount) EdgeData();
           EA[checkedEACount].edgeData = &checkedEdgeWeightEA[checkedEACount];
           EA[checkedEACount].edgeData->setEdgeDataFromPtr(
               uncheckedEA[index].second.second);
-#else
-          EA[checkedEACount].destination = uncheckedEA[index].second;
 #endif
-          if (EA[checkedEACount].source > maxVertex)
-            maxVertex = EA[checkedEACount].source;
-          if (EA[checkedEACount].destination > maxVertex)
-            maxVertex = EA[checkedEACount].destination;
+          if (uncheckedEA[index].first > maxVertex)
+            maxVertex = uncheckedEA[index].first;
+          if (uncheckedEA[index].second > maxVertex)
+            maxVertex = uncheckedEA[index].second;
           checkedEACount++;
         }
 
         if (index < uncheckedEDCount && !EDflag[index]) {
           ED[checkedEDCount].source = uncheckedED[index].first;
-#ifdef EDGEDATA
+#ifndef EDGEDATA
+          ED[checkedEDCount].destination = uncheckedED[index].second;
+#else
           ED[checkedEDCount].destination = uncheckedED[index].second.first;
           new (checkedEdgeWeightED + checkedEDCount) EdgeData();
           ED[checkedEDCount].edgeData = &checkedEdgeWeightED[checkedEDCount];
           ED[checkedEDCount].edgeData->setEdgeDataFromPtr(
               uncheckedED[index].second.second);
-#else
-          ED[checkedEDCount].destination = uncheckedED[index].second;
 #endif
           checkedEDCount++;
         }
@@ -466,10 +464,10 @@ public:
       free(EAflag);
       free(EDflag);
 #ifdef EDGEDATA
-      parallel_for(long i = 0; i < uncheckedEDCountOrig; i++) {
+      parallel_for(uintT i = 0; i < uncheckedEDCountOrig; i++) {
         edgeWeightED[i].del();
       }
-      parallel_for(long i = 0; i < uncheckedEACountOrig; i++) {
+      parallel_for(uintT i = 0; i < uncheckedEACountOrig; i++) {
         edgeWeightEA[i].del();
       }
 #endif
@@ -483,15 +481,15 @@ public:
     free(edgeWeightED);
 #endif
     free(edgesReceived);
-#ifdef EDGEDATA
+#ifndef EDGEDATA
+    return make_tuple(edgeArray(EA, checkedEACount, maxVertex),
+                      edgeArray(ED, checkedEDCount, 0), edgesRead,
+                      cancelledEdges);
+#else
     return make_tuple(
         edgeArray(EA, checkedEdgeWeightEA, checkedEACount, maxVertex),
         edgeArray(ED, checkedEdgeWeightED, checkedEDCount, 0), edgesRead,
         cancelledEdges);
-#else
-    return make_tuple(edgeArray(EA, checkedEACount, maxVertex),
-                      edgeArray(ED, checkedEDCount, 0), edgesRead,
-                      cancelledEdges);
 #endif
   }
 
@@ -505,7 +503,7 @@ public:
 
     timer timer1, timer2, fullTimer;
     fullTimer.start();
-    parallel_for(uintV i = 0; i < n; i++) updated_vertices[i] = 0;
+    parallel_for(uintT i = 0; i < n; i++) updated_vertices[i] = 0;
 
     long num_edges_read_from_file;
     long num_cancelled_edges;
@@ -541,7 +539,7 @@ public:
     if (edge_additions.maxVertex >= n) {
       long n_new = edge_additions.maxVertex + 1;
       updated_vertices = renewA(bool, updated_vertices, n_new);
-      parallel_for(uintV i = my_graph.n; i < n_new; i++) {
+      parallel_for(uintT i = my_graph.n; i < n_new; i++) {
         updated_vertices[i] = 1;
       }
       // update deletions_data
