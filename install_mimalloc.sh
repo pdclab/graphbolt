@@ -12,7 +12,7 @@ cd mimalloc
 if [ $? -ne 0 ]
 then
     echo "lib/mimalloc directory not found"
-    git clone https://github.com/microsoft/mimalloc.git
+    git clone -b v1.2.0 https://github.com/microsoft/mimalloc.git
     if [ $? -ne 0 ]
     then
         echo "Unable to perform git clone https://github.com/microsoft/mimalloc.git"
