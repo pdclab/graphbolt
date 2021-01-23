@@ -2,14 +2,14 @@
 
 Below is a time estimate for different tasks in this readme. The compute time (referred as `compute-seconds`) is based on the provided dataset.
 
-- 1. Overview (5 human-minutes)
-- 2. Setting up GraphBolt (10 human-minutes + 10 compute-seconds)
+1. Overview (5 human-minutes)
+2. Setting up GraphBolt (10 human-minutes + 10 compute-seconds)
     - 2.1 Requirements (2 human-minutes + 10 compute-seconds if g++/cmake already installed)
     - 2.2 Compiling Applications (2 human-minutes + 10 compute-seconds)
     - 2.3 Dataset Details (5 human-minutes)
         - 2.3.1 Preparing Streaming Datasets for any Graph (Advice to Reviewer: Skip this time-consuming step by directly using provided Wiki-Vote dataset)
-- 3. Running Applications (10 human-minutes + 5 compute-seconds)
-- 4. Experiments in Paper (20 human-minutes + 15 compute-seconds for an execution from each section)
+3. Running Applications (10 human-minutes + 5 compute-seconds)
+4. Experiments in Paper (20 human-minutes + 15 compute-seconds for an execution from each section)
     - 4.1 Hardware Used for Evaluation (3 human-minutes)
     - 4.2 Evaluating the System (17 human-minutes + 15 compute-seconds for an execution from each section)
         - 4.2.1 Understanding the Output (5 human-minutes)
@@ -84,7 +84,7 @@ The graph files are obtained in the SNAP format (edge list) format (say, `graph.
     ```bash
     sed -e 's/^/a\t/' additions.snap > additions.stream
     ```
-  * The `initial_graph.snap` file is used to create edge deletions stream file, `deletions.stream`. This is one of the steps to ensure that all the deletion operations actually result in edge deletions. In addition to this, you also need to use the command-line parameters `-fixedBatchSize -enforceEdgeValidity` while running the application as described in the next [section](#3-running-applications-1-compute-seconds-x-5-applications-=-5-compute-seconds):
+  * The `initial_graph.snap` file is used to create edge deletions stream file, `deletions.stream`. This is one of the steps to ensure that all the deletion operations actually result in edge deletions. In addition to this, you also need to use the command-line parameters `-fixedBatchSize -enforceEdgeValidity` while running the application as described in the next [section](#3-running-applications-1-compute-second-x-5-applications-=-5-compute-seconds):
     ```bash
     sed -e 's/^/d\t/' initial_graph.snap > deletions.stream
     ```
