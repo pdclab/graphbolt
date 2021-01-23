@@ -54,7 +54,7 @@ make -j
   
 [Section 2.3.1](#231-preparing-streaming-datasets-for-any-graph) gives the steps to prepare correct streaming inputs from these datasets. 
 
-  All the above input graphs are very large in size (billions of edges), and converting them to the appropriate format and creating input streams is a time consuming process. To simplify the artifact evaluation process, we have provided the input streams for a smaller graph called [Wiki-Vote](https://snap.stanford.edu/data/wiki-Vote.html) in the `inputs/wiki_vote/`. Hence, you can skip section 2.3.1 and directly start with [section 3](#3-running-applications-1-compute-second-x-5-applications-=-5-compute-seconds) with the Wiki-Vote graph. 
+  All the above input graphs are very large in size (billions of edges), and converting them to the appropriate format and creating input streams is a time consuming process. To simplify the artifact evaluation process, we have provided the input streams for a smaller graph called [Wiki-Vote](https://snap.stanford.edu/data/wiki-Vote.html) in the `inputs/wiki_vote/`. Hence, you can skip section 2.3.1 and directly start with [section 3](#3-running-applications-1-compute-second-x-5-applications--5-compute-seconds) with the Wiki-Vote graph. 
 
 #### 2.3.1 Preparing Streaming Datasets for any Graph
 
@@ -84,7 +84,7 @@ The graph files are obtained in the SNAP format (edge list) format (say, `graph.
     ```bash
     sed -e 's/^/a\t/' additions.snap > additions.stream
     ```
-  * The `initial_graph.snap` file is used to create edge deletions stream file, `deletions.stream`. This is one of the steps to ensure that all the deletion operations actually result in edge deletions. In addition to this, you also need to use the command-line parameters `-fixedBatchSize -enforceEdgeValidity` while running the application as described in the next [section](#3-running-applications-1-compute-second-x-5-applications-=-5-compute-seconds):
+  * The `initial_graph.snap` file is used to create edge deletions stream file, `deletions.stream`. This is one of the steps to ensure that all the deletion operations actually result in edge deletions. In addition to this, you also need to use the command-line parameters `-fixedBatchSize -enforceEdgeValidity` while running the application as described in the next [section](#3-running-applications-1-compute-second-x-5-applications--5-compute-seconds):
     ```bash
     sed -e 's/^/d\t/' initial_graph.snap > deletions.stream
     ```
@@ -234,4 +234,3 @@ In order to vary the epsilon value as done in Figure 18, use the command-line pa
 ```bash
 ./PageRank -epsilon 0.001 -maxIters 10 -fixedBatchSize -nEdges 10000 -streamPath ../inputs/wiki_vote/wiki_valid.stream -numberOfUpdateBatches 2 ../inputs/wiki_vote/wiki_vote_initial.adj
 ```
-
