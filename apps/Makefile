@@ -8,16 +8,19 @@ ifdef LONGVERTEXCOUNT
 INTV = -DLONG
 endif
 
+ifdef WORKFLAG
+EDGEWORK = -DEDGEWORK
+endif
+
 INTE = -DEDGELONG
 
 #compilers
-$(info ************  Using CILK ************)
 PCC = g++
-PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -g -O3 -DCILK $(INTV) $(INTE) $(EDGEDATA)
 LDFLAGS = -L../lib/mimalloc/out/release -lmimalloc 
+PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -O3 -DCILK $(INTV) $(INTE) $(EDGEDATA) $(EDGEWORK)
 
 # dependencies
-COMMON=../core/common/binary_search.h ../core/common/bitsetscheduler.h ../core/common/blockRadixSort.h ../core/common/densebitset.h ../core/common/gettime.h ../core/common/index_map.h ../core/common/matrix.h ../core/common/maybe.h ../core/common/parallel.h ../core/common/parseCommandLine.h ../core/common/transpose.h ../core/common/quickSort.h ../core/common/rwlock.h ../core/common/sequence.h ../core/common/utils.h
+COMMON=../core/common/binary_search.h ../core/common/bitsetscheduler.h ../core/common/blockRadixSort.h ../core/common/densebitset.h ../core/common/gettime.h ../core/common/index_map.h ../core/common/matrix.h ../core/common/maybe.h ../core/common/parallel.h ../core/common/parseCommandLine.h ../core/common/transpose.h ../core/common/quickSort.h ../core/common/rwlock.h ../core/common/sequence.h ../core/common/utils.h ../core/common/debugUtils.h
 
 GRAPH= ../core/graph/graph.h ../core/graph/graphUtils.h ../core/graph/IO.h ../core/graph/vertex.h ../core/graph/vertexSubset.h
 
@@ -25,7 +28,7 @@ GRAPHBOLT=../core/graphBolt/AdaptiveExecutor.h ../core/graphBolt/GraphBoltEngine
 
 OTHERS=../core/main.h
 
-ALL=PageRank LabelPropagation CF SSSP BFS
+ALL=PageRank LabelPropagation CF COEM SSSP BFS
 
 # make
 

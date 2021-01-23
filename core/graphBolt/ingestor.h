@@ -348,7 +348,8 @@ public:
       // remove all EdgeDeletions >= G.n as they don't exist in the graph
       parallel_for(long i = 0; i < uncheckedEDCount; i++) {
 #ifdef EDGEDATA
-        if (uncheckedED[i].first >= GA.n || uncheckedED[i].second.first >= GA.n) {
+        if (uncheckedED[i].first >= GA.n ||
+            uncheckedED[i].second.first >= GA.n) {
 #else
         if (uncheckedED[i].first >= GA.n || uncheckedED[i].second >= GA.n) {
 #endif

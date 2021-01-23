@@ -116,8 +116,11 @@ public:
   // TRADITIONAL INCREMENTAL COMPUTATION
   // ======================================================================
   int traditionalIncrementalComputation(int start_iteration) {
-    timer phase_timer;
-    double phase_time;
+    timer iteration_timer, phase_timer;
+    double misc_time, copy_time, phase_time, iteration_time;
+#ifdef EDGEWORK
+    long em_work = 0;
+#endif
 
     vertexSubset frontier_curr_vs(n, frontier_curr);
     bool use_delta = true;
@@ -126,7 +129,18 @@ public:
     } else {
       for (int iter = start_iteration; iter < max_iterations; iter++) {
         // initialize timers
-        { phase_timer.start(); }
+        {
+          phase_timer.start();
+          misc_time = 0;
+          copy_time = 0;
+#ifdef EDGEWORK
+          em_work = 0;
+#endif
+        }
+        MY_TIMER_LOGS([&] {
+          iteration_timer.start();
+          cout << setw(PRINT_WIDTH) << iter << ",";
+        });
 
         // ========== COPY - Prepare curr iteration ==========
         if (iter > 0) {
@@ -145,6 +159,8 @@ public:
         adaptive_executor.updateEdgesProcessed(iter, my_graph,
                                                frontier_curr_vs);
         phase_time = phase_timer.next();
+        misc_time = phase_time;
+
         adaptive_executor.updateMiscTime(iter, phase_time);
 
         // ========== EDGE COMPUTATION ==========
@@ -163,6 +179,9 @@ public:
 
         parallel_for(uintV u = 0; u < n; u++) {
           if (frontier_curr[u]) {
+#ifdef EDGEWORK
+            long curr_work = 0;
+#endif
             // check for propagate and retract for the vertices.
             intE outDegree = my_graph.V[u].getOutDegree();
             granular_for(j, 0, outDegree, (outDegree > 1024), {
@@ -189,6 +208,9 @@ public:
 
               // lock if needed
               if (ret) {
+#ifdef EDGEWORK
+                writeAdd(&curr_work, (long)1);
+#endif
                 if (use_lock) {
                   vertex_locks[v].writeLock();
                   addToAggregation(contrib_change, delta[v], global_info);
@@ -200,11 +222,22 @@ public:
                   frontier_next[v] = 1;
               }
             });
+#ifdef EDGEWORK
+            writeAdd(&em_work, curr_work);
+#endif
           }
         }
 
         phase_time = phase_timer.next();
         adaptive_executor.updateEdgeMapTime(iter, phase_time);
+#ifdef EDGEWORK
+        total_work_done += em_work;
+#endif
+#ifdef EDGEWORK
+          cout << setw(PRINT_WIDTH) << em_work << ",";
+          cout << setw(PRINT_WIDTH) << "0"
+               << ",";
+#endif
 
         // ========== VERTEX COMPUTATION ==========
         parallel_for(uintV v = 0; v < n; v++) {
@@ -226,7 +259,7 @@ public:
                             vertex_values[iter - 1][v], new_value, global_info);
 
             // Check if change is significant
-            if (isChanged(new_value, vertex_values[iter - 1][v], global_info)) {
+            if (notDelZero(new_value, vertex_values[iter - 1][v], global_info)) {
               // change is significant. Update vertex_values
               vertex_values[iter][v] = new_value;
               // Set active for next iteration.
@@ -255,6 +288,15 @@ public:
 
         vertexSubset temp_vs(n, frontier_curr);
         frontier_curr_vs = temp_vs;
+        misc_time += phase_timer.next();
+        iteration_time = iteration_timer.stop();
+        MY_TIMER_LOGS([&] {
+          cout << setw(PRINT_WIDTH) << iteration_time << "\n";
+        });
+
+        if (ae_enabled && iter == 1) {
+          adaptive_executor.setApproximateTimeForCurrIter(iteration_time);
+        }
 
         // Convergence check
         converged_iteration = iter;
@@ -271,9 +313,13 @@ public:
   // DELTACOMPUTE
   // ======================================================================
   void deltaCompute(edgeArray &edge_additions, edgeArray &edge_deletions) {
-    timer iteration_timer, full_timer;
-    double iteration_time = 0;
+    timer iteration_timer, phase_timer, full_timer, pre_compute_timer;
+    double misc_time, copy_time, phase_time, iteration_time, pre_compute_time;
     full_timer.start();
+#ifdef EDGEWORK
+    long em_work = 0;
+    long de_work = 0;
+#endif
 
     // Handle newly added vertices
     n_old = n;
@@ -310,18 +356,19 @@ public:
     global_info.processUpdates(edge_additions, edge_deletions);
 
     // ========== EDGE COMPUTATION - DIRECT CHANGES - for first iter ==========
+    pre_compute_timer.start();
     parallel_for(long i = 0; i < edge_additions.size; i++) {
       uintV source = edge_additions.E[i].source;
       uintV destination = edge_additions.E[i].destination;
 
+      hasSourceChangedByUpdate(source, edge_addition_enum,
+                               frontier_curr[source], changed[source],
+                               global_info, global_info_old);
+      hasSourceChangedByUpdate(destination, edge_addition_enum,
+                               frontier_curr[destination], changed[destination],
+                               global_info, global_info_old);
       if (forceActivateVertexForIteration(source, 1, global_info_old)) {
         // Update frontier and changed values
-        hasSourceChangedByUpdate(source, edge_addition_enum,
-                                 frontier_curr[source], global_info,
-                                 global_info_old);
-        hasSourceChangedByUpdate(destination, edge_addition_enum,
-                                 frontier_curr[destination], global_info,
-                                 global_info_old);
 
         if (frontier_curr[source]) {
           retract[source] = frontier_curr[source];
@@ -331,6 +378,7 @@ public:
         if (frontier_curr[destination]) {
           retract[destination] = frontier_curr[destination];
           propagate[destination] = frontier_curr[destination];
+          changed[destination] = true;
         }
 
         AggregationValueType contrib_change =
@@ -352,6 +400,9 @@ public:
             edgeFunction(source, destination, *edge_data,
                          vertex_values[0][source], contrib_change, global_info);
         if (ret) {
+#ifdef EDGEWORK
+          writeAdd(&de_work, (long)1);
+#endif
           if (use_lock) {
             vertex_locks[destination].writeLock();
             addToAggregation(contrib_change, delta[destination],
@@ -371,14 +422,14 @@ public:
       uintV source = edge_deletions.E[i].source;
       uintV destination = edge_deletions.E[i].destination;
 
+      hasSourceChangedByUpdate(source, edge_deletion_enum,
+                               frontier_curr[source], changed[source],
+                               global_info, global_info_old);
+      hasSourceChangedByUpdate(destination, edge_deletion_enum,
+                               frontier_curr[destination], changed[destination],
+                               global_info, global_info_old);
       if (forceActivateVertexForIteration(source, 1, global_info_old)) {
         // Update frontier and changed values
-        hasSourceChangedByUpdate(source, edge_deletion_enum,
-                                 frontier_curr[source], global_info,
-                                 global_info_old);
-        hasSourceChangedByUpdate(destination, edge_deletion_enum,
-                                 frontier_curr[destination], global_info,
-                                 global_info_old);
         if (frontier_curr[source]) {
           retract[source] = frontier_curr[source];
           propagate[source] = frontier_curr[source];
@@ -387,6 +438,7 @@ public:
         if (frontier_curr[destination]) {
           retract[destination] = frontier_curr[destination];
           propagate[destination] = frontier_curr[destination];
+          changed[destination] = true;
         }
 
         AggregationValueType contrib_change =
@@ -408,6 +460,9 @@ public:
             edgeFunction(source, destination, *edge_data,
                          vertex_values[0][source], contrib_change, global_info);
         if (ret) {
+#ifdef EDGEWORK
+          writeAdd(&de_work, (long)1);
+#endif
           if (use_lock) {
             vertex_locks[destination].writeLock();
             removeFromAggregation(contrib_change, delta[destination],
@@ -422,12 +477,24 @@ public:
         }
       }
     }
+    pre_compute_time = pre_compute_timer.stop();
+    MY_TIMER_LOGS([&] {
+      cout << setw(PRINT_WIDTH + 1) << "Iteration,";
+#ifdef EDGEWORK
+      cout << setw(PRINT_WIDTH + 1) << "T_Edges," << setw(PRINT_WIDTH + 1)
+           << "D_Edges,";
+#endif
+      cout << setw(PRINT_WIDTH + 1) << "TotalTime\n";
+    });
 
     // =============== INCREMENTAL COMPUTE - REFINEMENT START ================
     vertexSubset frontier_curr_vs(n, frontier_curr);
     bool should_switch_now = false;
     bool use_delta = true;
 
+    if (ae_enabled && shouldSwitch(0, 0)) {
+      should_switch_now = true;
+    }
     for (int iter = 1; iter < max_iterations; iter++) {
 
       // Perform switch
@@ -437,7 +504,17 @@ public:
       }
 
       // initialize timers
-      iteration_timer.start();
+      {
+        iteration_timer.start();
+        phase_timer.start();
+        misc_time = 0;
+        copy_time = 0;
+#ifdef EDGEWORK
+        em_work = 0;
+#endif
+      }
+
+      // iteration_timer.start();
       use_delta = shouldUseDelta(iter);
 
       // ==================== COPY - PREPARE CURRENT ITERATION ====================
@@ -456,6 +533,8 @@ public:
           break;
         }
       }
+      copy_time += phase_timer.next();
+      MY_TIMER_LOGS([&] { cout << setw(PRINT_WIDTH) << iter << ","; });
 
       // ========== EDGEMAP - TRANSITIVE CHANGES ==========
       if ((use_source_contribution) && (iter == 1)) {
@@ -480,6 +559,9 @@ public:
 
       parallel_for(uintV u = 0; u < n; u++) {
         if (frontier_curr[u]) {
+#ifdef EDGEWORK
+          long curr_work = 0;
+#endif
           // check for propagate and retract for the vertices.
           intE outDegree = my_graph.V[u].getOutDegree();
           granular_for(i, 0, outDegree, (outDegree > 1024), {
@@ -534,6 +616,9 @@ public:
             }
 
             if (ret || ret_old) {
+#ifdef EDGEWORK
+              writeAdd(&curr_work, (long)1);
+#endif
               if (use_lock) {
                 vertex_locks[v].writeLock();
                 if (ret_old) {
@@ -554,8 +639,21 @@ public:
                 changed[v] = 1;
             }
           });
+#ifdef EDGEWORK
+          writeAdd(&em_work, curr_work);
+#endif
         }
       }
+      phase_time = phase_timer.next();
+#ifdef EDGEWORK
+        total_work_done += de_work;
+        total_work_done += em_work;
+#endif
+#ifdef EDGEWORK
+        cout << setw(PRINT_WIDTH) << em_work << ",";
+        cout << setw(PRINT_WIDTH) << de_work << ",";
+        de_work = 0;
+#endif
 
       // ========== VERTEX COMPUTATION  ==========
       bool use_delta_next_iteration = shouldUseDelta(iter + 1);
@@ -584,7 +682,7 @@ public:
           }
 
           // Update v_change based on updated graph
-          if (isChanged(new_value, vertex_values[iter - 1][v], global_info)) {
+          if (notDelZero(new_value, vertex_values[iter - 1][v], global_info)) {
             // change is significant. Update vertex_values
             vertex_values[iter][v] = new_value;
             frontier_curr[v] = 1;
@@ -610,7 +708,7 @@ public:
           }
 
           // Update v_change based on initial graph
-          if (isChanged(vertex_value_old_next[v], vertex_value_old_curr[v],
+          if (notDelZero(vertex_value_old_next[v], vertex_value_old_curr[v],
                         global_info_old)) {
             // change is significant. Update v_change
             frontier_curr[v] = 1;
@@ -634,6 +732,7 @@ public:
           }
         }
       }
+      phase_time = phase_timer.next();
 
       // ========== EDGE COMPUTATION - DIRECT CHANGES - for next iter ==========
       bool has_direct_changes = false;
@@ -641,7 +740,7 @@ public:
         uintV source = edge_additions.E[i].source;
         uintV destination = edge_additions.E[i].destination;
 
-        if (isChanged(vertex_value_old_curr[source],
+        if (notDelZero(vertex_value_old_curr[source],
                       vertex_value_old_next[source], global_info_old) ||
             (forceActivateVertexForIteration(source, iter + 1,
                                              global_info_old))) {
@@ -680,6 +779,9 @@ public:
                                contrib_change_old, global_info_old);
           }
           if (ret) {
+#ifdef EDGEWORK
+            writeAdd(&de_work, (long)1);
+#endif
             if (use_lock) {
               vertex_locks[destination].writeLock();
               addToAggregation(contrib_change_old, delta[destination],
@@ -701,7 +803,7 @@ public:
         uintV source = edge_deletions.E[i].source;
         uintV destination = edge_deletions.E[i].destination;
 
-        if (isChanged(vertex_value_old_curr[source],
+        if (notDelZero(vertex_value_old_curr[source],
                       vertex_value_old_next[source], global_info_old) ||
             (forceActivateVertexForIteration(source, iter + 1,
                                              global_info_old))) {
@@ -741,6 +843,9 @@ public:
                                contrib_change_old, global_info_old);
           }
           if (ret) {
+#ifdef EDGEWORK
+            writeAdd(&de_work, (long)1);
+#endif
             if (use_lock) {
               vertex_locks[destination].writeLock();
               removeFromAggregation(contrib_change_old, delta[destination],
@@ -758,16 +863,22 @@ public:
           }
         }
       }
+      phase_time = phase_timer.next();
 
       // Create frontier for next iteration
       vertexSubset temp_vs(n, frontier_curr);
       frontier_curr_vs = temp_vs;
 
+      misc_time += phase_timer.next();
       iteration_time = iteration_timer.next();
 
       // Convergence check
       if (!has_direct_changes && frontier_curr_vs.isEmpty()) {
         if (iter == converged_iteration) {
+          MY_TIMER_LOGS([&] {
+            cout << setw(PRINT_WIDTH) << iteration_time << "\n";
+          });
+
           break;
         } else if (iter > converged_iteration) {
           assert(
@@ -780,14 +891,25 @@ public:
           // converged_iteration is reached.
         }
       }
+      if (iter == 1) {
+        iteration_time += pre_compute_time;
+      }
 
       if (ae_enabled && shouldSwitch(iter, iteration_time)) {
         should_switch_now = true;
       }
-      iteration_time = iteration_timer.stop();
+      misc_time += phase_timer.stop();
+      iteration_time += iteration_timer.stop();
+
+      MY_TIMER_LOGS([&] {
+        cout << setw(PRINT_WIDTH) << iteration_time << "\n";
+      });
     }
 
     cout << "Finished batch : " << full_timer.stop() << "\n";
+#ifdef EDGEWORK
+    cout << "Edges processed : " << total_work_done << "\n";
+#endif
     cout << "Number of iterations : " << converged_iteration << "\n";
     // testPrint();
     printOutput();
@@ -819,9 +941,9 @@ public:
   using GraphBoltEngine<vertex, AggregationValueType, VertexValueType,
                         GlobalInfoType>::delta;
   using GraphBoltEngine<vertex, AggregationValueType, VertexValueType,
-                         GlobalInfoType>::use_source_contribution;
+                        GlobalInfoType>::use_source_contribution;
   using GraphBoltEngine<vertex, AggregationValueType, VertexValueType,
-                         GlobalInfoType>::source_change_in_contribution;
+                        GlobalInfoType>::source_change_in_contribution;
   using GraphBoltEngine<vertex, AggregationValueType, VertexValueType,
                         GlobalInfoType>::n_old;
   using GraphBoltEngine<vertex, AggregationValueType, VertexValueType,
@@ -852,6 +974,8 @@ public:
                         GlobalInfoType>::adaptive_executor;
   using GraphBoltEngine<vertex, AggregationValueType, VertexValueType,
                         GlobalInfoType>::ae_enabled;
+  using GraphBoltEngine<vertex, AggregationValueType, VertexValueType,
+                        GlobalInfoType>::total_work_done;
   using GraphBoltEngine<vertex, AggregationValueType, VertexValueType,
                         GlobalInfoType>::testPrint;
   using GraphBoltEngine<vertex, AggregationValueType, VertexValueType,

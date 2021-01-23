@@ -138,6 +138,8 @@ public:
     use_random_init = object.use_random_init;
   }
 
+  void init() {}
+
   void useRandomInit(long t_seed) {
     use_random_init = true;
     random_init_seed = t_seed;
@@ -389,7 +391,7 @@ inline void computeFunction(const uintV &v,
 }
 
 template <class VertexValueType, class GlobalInfoType>
-inline bool isChanged(const VertexValueType &value_curr,
+inline bool notDelZero(const VertexValueType &value_curr,
                       const VertexValueType &value_next,
                       GlobalInfoType &global_info) {
   for (int i = 0; i < NUMBER_OF_FACTORS; i++) {
@@ -482,12 +484,14 @@ inline bool edgeFunctionDelta(const uintV &u, const uintV &v,
 template <class GlobalInfoType>
 inline void hasSourceChangedByUpdate(const uintV &v, UpdateType update_type,
                                      bool &activateInCurrentIteration,
+                                     bool &forceComputeInCurrentIteration,
                                      GlobalInfoType &global_info,
                                      GlobalInfoType &global_info_old) {}
 template <class GlobalInfoType>
 inline void hasDestinationChangedByUpdate(const uintV &v,
                                           UpdateType update_type,
                                           bool &activateInCurrentIteration,
+                                          bool &forceComputeInCurrentIteration,
                                           GlobalInfoType &global_info,
                                           GlobalInfoType &global_info_old) {}
 
@@ -532,7 +536,7 @@ template <class vertex> void compute(graph<vertex> &G, commandLine config) {
       config.getOptionValue("-partitionsFile", PARTITION_FILE_DEFAULT);
   double mod_val = config.getOptionDoubleValue("-modVal", MOD_VAL_CF);
   bool rand_init = config.getOption("-randInit");
-  double lambda = config.getOptionDoubleValue("-lambda", 0.0001); // lambda
+  double lambda = config.getOptionDoubleValue("-lambda", 0.00000055); // lambda
   double epsilon = 0.010000000000000000000000000d;
 
   CFGlobalInfo global_info(n, epsilon, mod_val);

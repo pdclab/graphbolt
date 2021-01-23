@@ -20,11 +20,12 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef EDGEDATA
-// NOTE: The edge data type header file should then be included as the first header
-// file at the top of the user program.
-#include "LP_edgeData.h"
+// NOTE: The edge data type header file should then be included as the first
+// header file at the top of the user program.
+#include "CF_edgeData.h"
 #endif
 
+#include "../core/common/matrix.h"
 #include "../core/common/utils.h"
 #include "../core/graphBolt/GraphBoltEngine_simple.h"
 #include "../core/main.h"
@@ -32,108 +33,73 @@
 
 #define PARTITION_FILE_DEFAULT ""
 #define SEED_FILE_DEFAULT ""
-#define NUMBER_OF_FEATURES 2
-#define MOD_VAL_LP 0.5d
+
+#define MODDER 0.5
+#define CONST1 1.7777777777
+#define CONST2 0.1
 
 // ======================================================================
-// AGGREGATEVALUE AND VERTEXVALUE STRUCTURES
+// CFINFO
 // ======================================================================
-class LPVertexAggregationData {
-public:
-  double ngh_sum[NUMBER_OF_FEATURES];
-  LPVertexAggregationData() {
-    for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-      ngh_sum[i] = 0;
-    }
-  }
-  LPVertexAggregationData &operator=(const LPVertexAggregationData &object) {
-    for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-      ngh_sum[i] = object.ngh_sum[i];
-    }
-  }
-  friend ostream &operator<<(ostream &os, const LPVertexAggregationData &dt);
-};
-
-ostream &operator<<(ostream &os,
-                    const LPVertexAggregationData &aggregation_data) {
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    os << aggregation_data.ngh_sum[i];
-    if (i + 1 != NUMBER_OF_FEATURES)
-      os << " ";
-  }
-  return os;
-}
-
-class LPVertexData {
-public:
-  double features[NUMBER_OF_FEATURES];
-  LPVertexData() {
-    for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-      features[i] = 0;
-    }
-  }
-  LPVertexData &operator=(const LPVertexData &object) {
-    for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-      features[i] = object.features[i];
-    }
-  }
-  friend ostream &operator<<(ostream &os, const LPVertexData &dt);
-};
-
-ostream &operator<<(ostream &os, const LPVertexData &vdata) {
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    os << vdata.features[i];
-    if (i + 1 != NUMBER_OF_FEATURES)
-      os << " ";
-  }
-  return os;
-}
-
-// ======================================================================
-// LPINFO
-// ======================================================================
-template <class vertex> class LPInfo {
+template <class vertex> class CoemInfo {
 public:
   // Should I just use vectors for this?
-  graph<vertex> *g;
   uintV n;
   double epsilon;
-  double mod_val;
-  double alpha;
+  graph<vertex> *my_graph;
 
+  double *in_weights;
+  bool *partition_flags;
   bool *seed_flags;
+  uintV flag_arrays_size;
 
-  LPInfo() : g(nullptr), n(0), epsilon(0), mod_val(0), alpha(0) {}
+  CoemInfo() : my_graph(nullptr), n(0), epsilon(0.01), flag_arrays_size(0) {}
 
-  LPInfo(graph<vertex> *_g, uintV _n, double _epsilon, double _mod_val,
-         double _alpha)
-      : g(_g), n(_n), epsilon(_epsilon), mod_val(_mod_val), alpha(_alpha) {
+  CoemInfo(graph<vertex> *_my_graph, uintV _n, double _epsilon)
+      : my_graph(_my_graph), n(_n), epsilon(_epsilon) {
     if (n > 0) {
-      seed_flags = newA(bool, n);
+      flag_arrays_size = n;
+      in_weights = newA(double, flag_arrays_size);
+      partition_flags = newA(bool, flag_arrays_size);
+      seed_flags = newA(bool, flag_arrays_size);
+      parallel_for(uintV i = 0; i < n; i++) { in_weights[i] = 0.0; }
     }
   }
 
-  LPInfo(LPInfo &object) {
-    g = object.g;
-    n = object.n;
-    epsilon = object.epsilon;
-    mod_val = object.mod_val;
-    alpha = object.alpha;
-    seed_flags = object.seed_flags;
-  }
-
-  void init() {}
-
+  void init() { computeInWeights(); }
 
 #ifdef EDGEDATA
 #else
-  inline double getWeight(uintV i, uintV j) {
-    return fmod((i + j) * 1.7777777777, mod_val);
+  inline double getWeight(long i, long j) {
+    return (fmod((i + j) * CONST1, MODDER) + CONST2);
   }
 #endif
 
-  inline double getFeature(uintV v, int features) const {
-    return fmod((v + features + 3) * 1.23456, mod_val);
+  // Helper functions for setting up partitions for non-bi-partite graphs
+  void setPartitionsFromFile(string partitions_file_path) {
+    if (partitions_file_path.compare(PARTITION_FILE_DEFAULT) == 0) {
+      cout << "ERROR : INCORRECT Partitions FILE"
+           << "\n";
+      exit(1);
+    }
+    char temp[partitions_file_path.length() + 1];
+    strcpy(temp, partitions_file_path.c_str());
+    temp[partitions_file_path.length()] = '\0';
+    _seq<char> S = readStringFromFile(temp);
+    words W = stringToWords(S.A, S.n);
+    long len = W.m;
+    // Initialize to 0
+    parallel_for(uintV i = 0; i < flag_arrays_size; i++) {
+      partition_flags[i] = 0;
+    }
+    parallel_for(long i = 0; i < len; i++) {
+      long vertexId = atoll(W.Strings[i]);
+      if (vertexId > flag_arrays_size) {
+        cout << "ERROR : " << vertexId << "\n";
+      }
+      partition_flags[vertexId] = 1;
+    }
+    W.del();
   }
 
   void setSeedsFromFile(string seeds_file_path) {
@@ -155,20 +121,59 @@ public:
       if (vertex_id > n) {
         cout << "ERROR : " << vertex_id << "\n";
       }
-      seed_flags[vertex_id] = 1;
+      if (belongsToNamesPartition(vertex_id)) {
+        seed_flags[vertex_id] = 1;
+      }
     }
     W.del();
   }
 
-  inline bool isSeed(uintV i) const { return seed_flags[i]; }
+  inline bool isSeed(uintV i) const {
+    return (i < flag_arrays_size) ? seed_flags[i] : 0;
+  }
 
-  void copy(const LPInfo &object) {
+  inline bool belongsToNamesPartition(uintV i) const {
+    return (i < flag_arrays_size) ? partition_flags[i] : i % 2;
+  }
+
+  inline bool belongsToCPartition(uintV i) const {
+    return (i < flag_arrays_size) ? (!partition_flags[i]) : !(i % 2);
+  }
+
+  CoemInfo &operator=(const CoemInfo &object) {
     // copy other static objects
     n = object.n;
-    g = object.g;
     epsilon = object.epsilon;
-    alpha = object.alpha;
-    mod_val = object.mod_val;
+    flag_arrays_size = object.flag_arrays_size;
+    in_weights = object.in_weights;
+    partition_flags = object.partition_flags;
+    seed_flags = object.seed_flags;
+  }
+
+  void copy(const CoemInfo &object) {
+    // copy other static objects
+    // We maintain a separate array for in_weights. The same array can be used
+    // for the partition_flags and seed_flags.
+    if (object.n > n) {
+      if (n == 0) {
+        n = object.n;
+        in_weights = newA(double, n);
+      } else {
+        // realloc
+        n = object.n;
+        in_weights = renewA(double, in_weights, n);
+      }
+    }
+    // copy the in_weights
+    my_graph = object.my_graph;
+    long min_n = std::min(object.n, n);
+    parallel_for(uintV i = 0; i < n; i++) {
+      in_weights[i] = object.in_weights[i];
+    }
+
+    epsilon = object.epsilon;
+    flag_arrays_size = object.flag_arrays_size;
+    partition_flags = object.partition_flags;
     seed_flags = object.seed_flags;
   }
 
@@ -176,55 +181,81 @@ public:
     if (edge_additions.maxVertex >= n) {
       uintV n_old = n;
       n = edge_additions.maxVertex + 1;
-      seed_flags = renewA(bool, seed_flags, n);
-      parallel_for(uintV i = n_old; i < n; i++) { seed_flags[i] = 0; }
-    }
 
+      in_weights = renewA(double, in_weights, n);
+      partition_flags = renewA(bool, partition_flags, n);
+      seed_flags = renewA(bool, seed_flags, n);
+      parallel_for(uintV i = n_old; i < n; i++) {
+        partition_flags[i] = i % 2;
+        seed_flags[i] = 0;
+        in_weights[i] = 0;
+      }
+      flag_arrays_size = n;
+    }
     parallel_for(long i = 0; i < edge_additions.size; i++) {
       uintV source = edge_additions.E[i].source;
       uintV destination = edge_additions.E[i].destination;
-      // Incrementally update static_data
+      double curr_weight = getWeight(source, destination);
+      writeAdd(&in_weights[destination], curr_weight);
     }
     parallel_for(long i = 0; i < edge_deletions.size; i++) {
       uintV source = edge_deletions.E[i].source;
       uintV destination = edge_deletions.E[i].destination;
-      // Incrementally update static_data
+      double curr_weight = getWeight(source, destination);
+      writeAdd(&in_weights[destination], -curr_weight);
+    }
+  }
+
+  void computeInWeights() {
+    // cout << "computeInWeights\n";
+    parallel_for(uintV v = 0; v < n; v++) {
+      in_weights[v] = 0;
+      intE inDegree = my_graph->V[v].getInDegree();
+      for (long j = 0; j < inDegree; j++) {
+        uintV u = my_graph->V[v].getInNeighbor(j);
+        in_weights[v] += getWeight(u, v);
+      }
     }
   }
 
   void cleanup() {
-    if (n > 0)
-      deleteA(seed_flags);
+    if (flag_arrays_size > 0) {
+      free(partition_flags);
+      free(seed_flags);
+    }
   }
 
-  ~LPInfo() {}
+  ~CoemInfo() {
+    if (flag_arrays_size > 0) {
+      free(in_weights);
+    }
+  }
 };
 
 // ======================================================================
 // AGGREGATEVALUE AND VERTEXVALUE INITIALIZATION
 // ======================================================================
-LPVertexAggregationData initial_aggregation_value;
-LPVertexAggregationData aggregation_value_identity;
-LPVertexData actual_value_identity;
+double initial_aggregation_value = 0;
+double initial_vertex_value = 0;
+double initial_vertex_value_for_seeds = 1;
+double aggregation_value_identity = 0;
+double vertex_value_identity = 0;
 
 template <class AggregationValueType, class GlobalInfoType>
 inline void initializeAggregationValue(const uintV &v,
-                                       AggregationValueType &v_actual_value,
+                                       AggregationValueType &v_vertex_value,
                                        const GlobalInfoType &global_info) {
-  v_actual_value = initial_aggregation_value;
+  v_vertex_value = initial_aggregation_value;
 }
 
 template <class VertexValueType, class GlobalInfoType>
 inline void initializeVertexValue(const uintV &v,
-                                  VertexValueType &v_actual_value,
+                                  VertexValueType &v_vertex_value,
                                   const GlobalInfoType &global_info) {
-  double sum = 0;
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    v_actual_value.features[i] = global_info.getFeature(v, i);
-    sum += v_actual_value.features[i];
-  }
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    v_actual_value.features[i] = v_actual_value.features[i] / sum;
+  if (global_info.isSeed(v)) {
+    v_vertex_value = initial_vertex_value_for_seeds;
+  } else {
+    v_vertex_value = initial_vertex_value;
   }
 }
 
@@ -234,7 +265,7 @@ inline AggregationValueType &aggregationValueIdentity() {
 }
 
 template <class VertexValueType> inline VertexValueType &vertexValueIdentity() {
-  return actual_value_identity;
+  return vertex_value_identity;
 }
 
 // ======================================================================
@@ -243,9 +274,8 @@ template <class VertexValueType> inline VertexValueType &vertexValueIdentity() {
 template <class GlobalInfoType>
 inline bool forceActivateVertexForIteration(const uintV &v, int iter,
                                             const GlobalInfoType &global_info) {
-
   bool ret = false;
-  if (iter == 1) {
+  if ((iter == 1) && global_info.isSeed(v)) {
     ret = true;
   } else {
     ret = false;
@@ -256,10 +286,11 @@ inline bool forceActivateVertexForIteration(const uintV &v, int iter,
 template <class GlobalInfoType>
 inline bool forceComputeVertexForIteration(const uintV &v, int iter,
                                            const GlobalInfoType &global_info) {
-  return true;
+  return false;
 }
 
 inline bool shouldUseDelta(int iter) {
+  // if ((iter == 1) || (iter == 2)) {
   if (iter == 1) {
     return false;
   }
@@ -273,17 +304,13 @@ template <class AggregationValueType, class GlobalInfoType>
 inline void addToAggregation(const AggregationValueType &incoming_value,
                              AggregationValueType &aggregate_value,
                              GlobalInfoType &global_info) {
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    aggregate_value.ngh_sum[i] += incoming_value.ngh_sum[i];
-  }
+  aggregate_value += incoming_value;
 }
 template <class AggregationValueType, class GlobalInfoType>
 inline void addToAggregationAtomic(const AggregationValueType &incoming_value,
                                    AggregationValueType &aggregate_value,
                                    GlobalInfoType &global_info) {
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    writeAdd(&aggregate_value.ngh_sum[i], incoming_value.ngh_sum[i]);
-  }
+  writeAdd(&aggregate_value, incoming_value);
 }
 
 template <class AggregationValueType, class GlobalInfoType>
@@ -291,18 +318,14 @@ template <class AggregationValueType, class GlobalInfoType>
 inline void removeFromAggregation(const AggregationValueType &incoming_value,
                                   AggregationValueType &aggregate_value,
                                   GlobalInfoType &global_info) {
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    aggregate_value.ngh_sum[i] -= incoming_value.ngh_sum[i];
-  }
+  aggregate_value -= incoming_value;
 }
 template <class AggregationValueType, class GlobalInfoType>
 inline void
 removeFromAggregationAtomic(const AggregationValueType &incoming_value,
                             AggregationValueType &aggregate_value,
                             GlobalInfoType &global_info) {
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    writeAdd(&aggregate_value.ngh_sum[i], -incoming_value.ngh_sum[i]);
-  }
+  writeAdd(&aggregate_value, -incoming_value);
 }
 
 // ======================================================================
@@ -312,59 +335,28 @@ template <class AggregationValueType, class VertexValueType,
           class GlobalInfoType>
 inline void computeFunction(const uintV &v,
                             const AggregationValueType &aggregation_value,
-                            const VertexValueType &actual_value_curr,
-                            VertexValueType &actual_value_next,
+                            const VertexValueType &vertex_value_curr,
+                            VertexValueType &vertex_value_next,
                             GlobalInfoType &global_info) {
-
   if (global_info.isSeed(v)) {
-    actual_value_next = actual_value_curr;
+    vertex_value_next = vertex_value_curr;
     return;
   }
 
-  if (global_info.g->V[v].getInDegree() == 0) {
-    actual_value_next = actual_value_curr;
-    return;
-  }
-
-  double sum = 0;
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    sum += aggregation_value.ngh_sum[i];
-  }
-
-  double sum2 = 0;
-  if (sum != 0) {
-
-    for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-      actual_value_next.features[i] =
-          actual_value_curr.features[i] * global_info.alpha +
-          (aggregation_value.ngh_sum[i] / sum) * (1 - global_info.alpha);
-      sum2 += actual_value_next.features[i];
-    }
+  if (global_info.my_graph->V[v].getInDegree() != 0) {
+    vertex_value_next = aggregation_value / global_info.in_weights[v];
   } else {
-
-    actual_value_next = actual_value_curr;
-    return;
+    vertex_value_next = 0;
   }
-  if (sum2 != 0) {
-    for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-      actual_value_next.features[i] = actual_value_next.features[i] / sum2;
-    }
-  } else {
-    for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-      actual_value_next.features[i] = actual_value_curr.features[i];
-    }
-  }
+  return;
 }
 
 template <class VertexValueType, class GlobalInfoType>
 inline bool notDelZero(const VertexValueType &value_curr,
                       const VertexValueType &value_next,
                       GlobalInfoType &global_info) {
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    if (fabs(value_next.features[i] - value_curr.features[i]) >
-        global_info.epsilon) {
-      return true;
-    }
+  if (fabs(value_next - value_curr) > global_info.epsilon) {
+    return true;
   }
   return false;
 }
@@ -378,10 +370,7 @@ inline void sourceChangeInContribution(
     const uintV &v, AggregationValueType &v_change_in_contribution,
     const VertexValueType &v_value_prev, const VertexValueType &v_value_curr,
     StaticInfoType &global_info) {
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    v_change_in_contribution.ngh_sum[i] =
-        (v_value_curr.features[i] - v_value_prev.features[i]);
-  }
+  v_change_in_contribution = v_value_curr - v_value_prev;
 }
 
 template <class AggregationValueType, class VertexValueType, class EdgeDataType,
@@ -391,15 +380,18 @@ inline bool edgeFunction(const uintV &u, const uintV &v,
                          const VertexValueType &u_value,
                          AggregationValueType &u_change_in_contribution,
                          GlobalInfoType &global_info) {
-#ifdef EDGEDATA
-  double weight = edge_weight.weight;
-#else
-  double weight = global_info.getWeight(u, v);
-#endif
-  for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
-    u_change_in_contribution.ngh_sum[i] =
-        weight * u_change_in_contribution.ngh_sum[i];
+  if (global_info.belongsToNamesPartition(u) ==
+      global_info.belongsToNamesPartition(v)) {
+    return false;
   }
+#ifdef EDGEDATA
+  double edge_weight_val = edge_weight.weight;
+#else
+  double edge_weight_val = global_info.getWeight(u, v);
+#endif
+
+  u_change_in_contribution = edge_weight_val * u_change_in_contribution;
+
   return true;
 }
 
@@ -411,15 +403,21 @@ inline void hasSourceChangedByUpdate(const uintV &v, UpdateType update_type,
                                      bool &activateInCurrentIteration,
                                      bool &forceComputeInCurrentIteration,
                                      GlobalInfoType &global_info,
-                                     GlobalInfoType &global_info_old) {}
-
+                                     GlobalInfoType &global_info_old) {
+  if (global_info.in_weights[v] != global_info_old.in_weights[v])
+    forceComputeInCurrentIteration = true;
+}
 template <class GlobalInfoType>
 inline void hasDestinationChangedByUpdate(const uintV &v,
                                           UpdateType update_type,
                                           bool &activateInCurrentIteration,
                                           bool &forceComputeInCurrentIteration,
                                           GlobalInfoType &global_info,
-                                          GlobalInfoType &global_info_old) {}
+                                          GlobalInfoType &global_info_old) {
+
+  if (global_info.in_weights[v] != global_info_old.in_weights[v])
+    forceComputeInCurrentIteration = true;
+}
 
 // ======================================================================
 // HELPER FUNCTIONS
@@ -430,11 +428,12 @@ void printHistory(const uintV &v, AggregationValueType **agg_values,
                   VertexValueType **actual_values, GlobalInfoType &info,
                   int history_iterations) {
   for (int iter = 0; iter < history_iterations; iter++) {
-    cout << iter << "," << agg_values[iter][v] << "," << actual_values[iter][v]
-         << "\n";
+    cout << iter << ",";
+    cout << agg_values[iter][v] << ",";
+    cout << actual_values[iter][v] << ",";
+    cout << "\n";
   }
 }
-
 template <class GlobalInfoType>
 void printAdditionalData(ofstream &output_file, const uintV &v,
                          GlobalInfoType &info) {
@@ -445,25 +444,31 @@ void printAdditionalData(ofstream &output_file, const uintV &v,
 // COMPUTE FUNCTION
 // ======================================================================
 template <class vertex> void compute(graph<vertex> &G, commandLine config) {
+  // cout << setprecision(TIME_PRECISION);
   uintV n = G.n;
+  // cout << setprecision(VAL_PRECISION);
   int max_iters = config.getOptionLongValue("-maxIters", 10);
   max_iters += 1;
-  // NOTE : The seeds file is a mandatory argument. Each seed vertex is specified in a separate line in the file.  Refer "setSeedsFromFile()" fucntion for setting the seed vertices.
+  string partitions_file_path =
+      config.getOptionValue("-partitionsFile", PARTITION_FILE_DEFAULT);
   string seeds_file_path =
       config.getOptionValue("-seedsFile", PARTITION_FILE_DEFAULT);
-  double mod_val = config.getOptionDoubleValue("-modVal", MOD_VAL_LP);
-  double epsilon = config.getOptionDoubleValue("-epsilon", 0.01d);
-  double alpha = 0.15d;
 
-  LPInfo<vertex> global_info(&G, n, epsilon, mod_val, alpha);
+  double epsilon = 0.01d;
+
+  CoemInfo<vertex> global_info(&G, n, epsilon);
+
+  cout << "Reading partitions file ....\n";
+  global_info.setPartitionsFromFile(partitions_file_path);
 
   cout << "Reading seeds file ....\n";
   global_info.setSeedsFromFile(seeds_file_path);
+  // global_info.computeInWeights();
 
   cout << "Initializing engine ....\n";
-  GraphBoltEngineSimple<vertex, LPVertexAggregationData, LPVertexData, LPInfo<vertex>>
-      engine(G, max_iters, global_info, false, config);
+  GraphBoltEngineSimple<vertex, double, double, CoemInfo<vertex>> engine(
+      G, max_iters, global_info, false, config);
   engine.init();
-  cout << "Finished initializing engine\n";
+  cout << "Finished init\n";
   engine.run();
 }

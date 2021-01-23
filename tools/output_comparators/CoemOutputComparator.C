@@ -30,42 +30,24 @@
 
 using namespace std;
 
-struct LPData {
+struct CoemData {
   long vertex;
   long inDegree;
   long outDegree;
   int is_seed;
-  double *features;
-  long number_of_features;
+  // double is_seed;
+  double value;
 
-  LPData() = default;
-  //   LPData(long t_number_of_features) :
-  //   number_of_features(t_number_of_features) {
-  //     features = new double[number_of_features];
-  //     vertex = 0;
-  //     outDegree = 0;
-  //     inDegree = 0;
-  //     is_seed = 0;
-  //   }
+  CoemData() = default;
 
-  ~LPData() {
-    if (number_of_features > 0) {
-      delete[] features;
-    }
-  }
+  ~CoemData() {}
 
-  inline void setNumberOfFeatures(long t_number_of_features) {
-    number_of_features = t_number_of_features;
-    features = new double[number_of_features];
-  }
   inline void setVertex(string str) { vertex = stol(str); }
   inline void setInDegree(string str) { inDegree = stol(str); }
   inline void setOutDegree(string str) { outDegree = stol(str); }
   inline void setSeed(string str) { is_seed = stoi(str); }
-  inline void setFeature(long index, string str) {
-    features[index] = stod(str);
-  }
-
+  // inline void setSeed(string str) { is_seed = stod(str); }
+  inline void setValue(string str) { value = stod(str); }
   inline void setIndex(char *str, int index) {
     switch (index) {
     case 0:
@@ -80,14 +62,10 @@ struct LPData {
     case 3:
       setSeed(string(str));
       break;
+    case 4:
+      setValue(string(str));
+      break;
     default:
-      if (index > 3) {
-        long index2 = index - 4;
-        if (index2 < number_of_features) {
-          setFeature(index2, string(str));
-          break;
-        }
-      }
       cout << "ERROR: Incorrect index (" << index << ")\n";
       break;
     }
@@ -95,22 +73,14 @@ struct LPData {
   string printString() {
     ostringstream streamObj;
     streamObj << setprecision(VAL_PRECISION2);
-    streamObj << vertex << " " << inDegree << " " << outDegree << " " << is_seed
-              << " ";
-
-    for (int i = 0; i < number_of_features; i++) {
-      streamObj << features[i] << " ";
-    }
+    streamObj << vertex << " " << inDegree << " " << outDegree << " " << is_seed << " " << value;
     return streamObj.str();
   }
 
-  bool isEqualWithThreshold(const LPData &rhs, double threshold) {
+  bool isEqualWithThreshold(const CoemData &rhs, double threshold) {
     bool ret = true;
-    for (int i = 0; i < number_of_features; i++) {
-      if (fabs(features[i] - rhs.features[i]) > threshold) {
-        ret = false;
-        break;
-      }
+    if (fabs(value - rhs.value) > threshold) {
+      ret = false;
     }
     return ret;
   }
@@ -122,7 +92,6 @@ int parallel_main(int argc, char *argv[]) {
   char *file2_path = P.getOptionValue("-file2");
   char *output_file_path = P.getOptionValue("-ofile");
   bool print_output = (output_file_path != NULL);
-  long number_of_features = P.getOptionLongValue("-number_of_features", 2);
   long thresholds = P.getOptionLongValue("-thresholds", 6);
 
   cout << "file1 : " << file1_path << "\n";
@@ -153,17 +122,17 @@ int parallel_main(int argc, char *argv[]) {
   //   cout << setprecision(VAL_PRECISION2);
 
   if (nChars1 != nChars2) {
-    cout << "WARNING: Number of characters in both files not equal\n";
+    "WARNING: Number of characters in both files not equal\n";
   }
 
   if (nWords1 != nWords2) {
-    cout << "ERROR: Number of words in both files not equal\n";
+    "ERROR: Number of words in both files not equal\n";
     W1.del();
     W2.del();
     exit(1);
   }
 
-  long words_per_line = number_of_features + 4;
+  long words_per_line = 5;
   cout << "words_per_line : " << words_per_line << "\n";
 
   if (nWords1 % words_per_line != 0) {
@@ -176,12 +145,8 @@ int parallel_main(int argc, char *argv[]) {
 
   long lines = nWords1 / words_per_line;
 
-  LPData *file1_data = new LPData[lines];
-  LPData *file2_data = new LPData[lines];
-  parallel_for(long i = 0; i < lines; i++) {
-    file1_data[i].setNumberOfFeatures(number_of_features);
-    file2_data[i].setNumberOfFeatures(number_of_features);
-  }
+  CoemData *file1_data = new CoemData[lines];
+  CoemData *file2_data = new CoemData[lines];
 
   parallel_for(long i = 0; i < nWords1; i++) {
     file1_data[i / words_per_line].setIndex(W1.Strings[i], i % words_per_line);

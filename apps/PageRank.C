@@ -27,22 +27,30 @@
 // ======================================================================
 // PAGERANKINFO
 // ======================================================================
+template <class vertex>
 class PageRankInfo {
 public:
   // Should I just use vectors for this?
+  graph<vertex> *my_graph;
   uintV n;
   double epsilon;
   double damping;
   long *out_degrees;
 
-  PageRankInfo() : n(0), epsilon(0), damping(0), out_degrees(nullptr) {}
+  PageRankInfo() : my_graph(nullptr), n(0), epsilon(0), damping(0), out_degrees(nullptr) {}
 
-  PageRankInfo(uintV _n, double _epsilon, double _damping)
-      : n(_n), epsilon(_epsilon), damping(_damping) {
+  PageRankInfo(graph<vertex> *_my_graph, uintV _n, double _epsilon, double _damping)
+      : my_graph(_my_graph), n(_n), epsilon(_epsilon), damping(_damping) {
     if (n > 0) {
       out_degrees = newA(long, n);
       parallel_for(uintV i = 0; i < n; i++) { out_degrees[i] = 0; }
     }
+  }
+
+  void init(){
+    parallel_for(uintV i = 0; i < n; i++) {
+      out_degrees[i] = my_graph->V[i].getOutDegree();
+    }    
   }
 
   void copy(const PageRankInfo &object) {
@@ -204,7 +212,7 @@ inline void computeFunction(const uintV &v,
 }
 
 template <class VertexValueType, class GlobalInfoType>
-inline bool isChanged(const VertexValueType &value_curr,
+inline bool notDelZero(const VertexValueType &value_curr,
                       const VertexValueType &value_next,
                       GlobalInfoType &global_info) {
   return (fabs(value_next - value_curr) > global_info.epsilon);
@@ -241,6 +249,7 @@ inline bool edgeFunction(const uintV &u, const uintV &v,
 template <class GlobalInfoType>
 inline void hasSourceChangedByUpdate(const uintV &v, UpdateType update_type,
                                      bool &activateInCurrentIteration,
+                                     bool &forceComputeInCurrentIteration,
                                      GlobalInfoType &global_info,
                                      GlobalInfoType &global_info_old) {
   if (global_info.getOutDegree(v) != global_info_old.getOutDegree(v))
@@ -251,6 +260,7 @@ template <class GlobalInfoType>
 inline void hasDestinationChangedByUpdate(const uintV &v,
                                           UpdateType update_type,
                                           bool &activateInCurrentIteration,
+                                          bool &forceComputeInCurrentIteration,
                                           GlobalInfoType &global_info,
                                           GlobalInfoType &global_info_old) {}
 
@@ -278,17 +288,14 @@ void printAdditionalData(ofstream &output_file, const uintV &v,
 template <class vertex> void compute(graph<vertex> &G, commandLine config) {
   uintV n = G.n;
   int max_iters = config.getOptionLongValue("-maxIters", 10);
+  double epsilon = config.getOptionDoubleValue("-epsilon", 0.01d);
   max_iters += 1;
-  double epsilon = 0.01;
   double damping = 0.85;
 
-  PageRankInfo global_info(n, epsilon, damping);
-  parallel_for(uintV i = 0; i < n; i++) {
-    global_info.out_degrees[i] = G.V[i].getOutDegree();
-  }
+  PageRankInfo<vertex> global_info(&G, n, epsilon, damping);
 
   cout << "Initializing engine ....\n";
-  GraphBoltEngineSimple<vertex, double, double, PageRankInfo> engine(
+  GraphBoltEngineSimple<vertex, double, double, PageRankInfo<vertex>> engine(
       G, max_iters, global_info, false, config);
   engine.init();
   cout << "Finished initializing engine\n";

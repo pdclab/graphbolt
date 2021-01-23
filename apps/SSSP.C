@@ -56,6 +56,7 @@ public:
     source_vertex = object.source_vertex;
     weight_cap = object.weight_cap;
   }
+  void init() {}
 
   void processUpdates(edgeArray &edge_additions, edgeArray &edge_deletions) {}
 
