@@ -11,7 +11,7 @@ PCFLAGS = -std=c++14 -fcilkplus -lcilkrts -g -O3 -DCILK $(INTV) $(INTE)
 COMMON = ../../core/common/utils.h ../../core/common/parseCommandLine.h ../../core/common/parallel.h ../../core/common/quickSort.h ../../core/common/blockRadixSort.h ../../core/common/transpose.h ../../core/common/rwlock.h
 LOCAL_COMMON = ../common/graphIO.h ../common/fileUtils.h
 
-CONVERTERS = SNAPtoAdjConverter
+CONVERTERS = SNAPtoAdjConverter adjacencyToSNAP
 
 .PHONY: all clean
 
