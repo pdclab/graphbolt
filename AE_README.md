@@ -50,7 +50,7 @@ make -j
 ```
 
 ### 2.3 Dataset Details
-  The input graphs used in evaluation are: [UK](http://law.di.unimi.it/webdata/uk-2005/), [TW](http://konect.uni-koblenz.de/networks/twitter), [TT](http://law.di.unimi.it/webdata/twitter-2010/), [FT](https://snap.stanford.edu/data/com-Friendster.html) and [YH](https://webscope.sandbox.yahoo.com/?guccounter=1).
+  The input graphs used in evaluation are: [UK](http://law.di.unimi.it/webdata/uk-2005/), [TW](http://konect.cc/networks/twitter/), [TT](http://konect.cc/networks/twitter_mpi/), [FT](http://konect.cc/networks/friendster/) and [YH](https://webscope.sandbox.yahoo.com/?guccounter=1). For detailed instructions on converting these datasets to the `graph.snap` format, please refer to [DATASET_CONV.md](DATASET_CONV.md).
   
 [Section 2.3.1](#231-preparing-streaming-datasets-for-any-graph) gives the steps to prepare correct streaming inputs from these datasets. 
 

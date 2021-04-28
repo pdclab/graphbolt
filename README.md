@@ -2,13 +2,12 @@
 
 **GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs**
 
-**NOTE: For Artifact evaluation instructions, refer [AE_README.md](AE_README.md)**
 
 ## 1. What is it?
 
 GraphBolt is an efficient streaming graph processing system that provides Bulk Synchronous Parallel (BSP) guarantees. GraphBolt performs dependency-driven incremental processing which quickly reacts to graph changes, and provides low latency & high throughput processing. [[Read more]](https://www.cs.sfu.ca/~keval/contents/papers/graphbolt-eurosys19.pdf)
 
-GraphBolt, now incorporates the DZiG run-time inorder to perform sparsity-aware incremental processing, thereby pushing the boundary of dependency-driven processing of streaming graphs.
+GraphBolt, now incorporates the DZiG run-time inorder to perform sparsity-aware incremental processing, thereby pushing the boundary of dependency-driven processing of streaming graphs. [[Read more]](https://www.cs.sfu.ca/~keval/contents/papers/dzig-eurosys21.pdf)
 
 For asynchronous algorithms, GraphBolt incorporates KickStarter's light-weight dependency tracking and trimming strategy. [[Read more]](https://www.cs.sfu.ca/~keval/contents/papers/kickstarter-asplos17.pdf)
 
@@ -302,6 +301,8 @@ The weighted adjacency graph can then be used in user programs by defining the c
 Some utility functions from [Ligra](https://github.com/jshun/ligra) and [Problem Based Benchmark Suite](http://www.cs.cmu.edu/~pbbs/index.html) are used as part of this project. We are thankful to them for releasing their source code.
 
 ## 8. Resources
+Mugilan Mariappan, Joanna Che and Keval Vora. [DZiG: Sparsity-Aware Incremental Processing of Streaming Graphs](https://dl.acm.org/doi/10.1145/3447786.3456230). European Conference on Computer Systems (**EuroSys'21**). Online Event, United Kingdom, April 2021.
+
 Mugilan Mariappan and Keval Vora. [GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs](https://dl.acm.org/citation.cfm?id=3303974). European Conference on Computer Systems (**EuroSys'19**). Dresden, Germany, March 2019.
 
 Keval Vora, Rajiv Gupta and Guoqing Xu  [KickStarter: Fast and Accurate Computations on Streaming Graphs via Trimmed Approximations](https://dl.acm.org/citation.cfm?id=3093336.3037748). Architectural Support for Programming Languages and Operating Systems (**ASPLOS'17**). Xi'an, China, April 2017.
@@ -310,6 +311,22 @@ Keval Vora, Rajiv Gupta and Guoqing Xu  [KickStarter: Fast and Accurate Computat
 To cite, you can use the following BibTeX entries:
 
 ```
+@inproceedings{10.1145/3447786.3456230,
+ author = {Mariappan, Mugilan and Che, Joanna and Vora, Keval},
+ title = {DZiG: Sparsity-Aware Incremental Processing of Streaming Graphs},
+ booktitle = {Proceedings of the Sixteenth European Conference on Computer Systems},
+ series = {EuroSys '21}
+ year = {2021},
+ isbn = {9781450383349},
+ location = {Online Event, United Kingdom},
+ pages = {83–98},
+ numpages = {16},
+ url = {https://doi.org/10.1145/3447786.3456230},
+ doi = {10.1145/3447786.3456230},
+ publisher = {Association for Computing Machinery},
+ address = {New York, NY, USA},
+}
+
 @inproceedings{Mariappan:2019:GDS:3302424.3303974,
  author = {Mariappan, Mugilan and Vora, Keval},
  title = {GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs},
