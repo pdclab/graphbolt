@@ -46,7 +46,8 @@ struct edge {
   uintV destination;
 #ifdef EDGEDATA
   EdgeData *edgeData; // pointer to struct
-  edge(uintV f, uintV s, EdgeData *e) : source(f), destination(s), edgeData(e) {}
+  edge(uintV f, uintV s, EdgeData *e) 
+      : source(f), destination(s), edgeData(e) {}
 #else
   edge(uintV f, uintV s) : source(f), destination(s) {}
 #endif
@@ -70,8 +71,7 @@ struct edgeArray {
   }
   edgeArray() : size(0) { E = nullptr; }
 #ifdef EDGEDATA
-  edgeArray(edge *EE, EdgeData *_edgeDataArray, long _size,
-            long _maxVertex)
+  edgeArray(edge *EE, EdgeData *_edgeDataArray, long _size, long _maxVertex)
       : E(EE), edgeDataArray(_edgeDataArray), size(_size),
         maxVertex(_maxVertex) {}
 #else
@@ -693,7 +693,8 @@ public:
 
     edge *ED = newA(edge, deletionsData.numberOfDeletions * 2);
 #ifdef EDGEDATA
-    EdgeData *edgeDataWeight = newA(EdgeData, deletionsData.numberOfDeletions * 2);
+    EdgeData *edgeDataWeight =
+        newA(EdgeData, deletionsData.numberOfDeletions * 2);
 #endif
 
     // TODO : Why?
@@ -1141,7 +1142,8 @@ public:
         }
         free(inEdgeData[i]);
 #endif
-        free(inEdges[i]); }
+        free(inEdges[i]);
+      }
       free(inEdges);
 #ifdef EDGEDATA
       free(inEdgeData);
@@ -1174,8 +1176,7 @@ template <class vertex> struct graph {
   graph(vertex *_V, uintV _n, uintE _m, Deletable *_D)
       : V(_V), n(_n), m(_m), D(_D), flags(NULL), transposed(0), symmetric(0) {}
 
-  graph(vertex *_V, uintV _n, uintE _m, Deletable *_D,
-        uintE *_flags)
+  graph(vertex *_V, uintV _n, uintE _m, Deletable *_D, uintE *_flags)
       : V(_V), n(_n), m(_m), D(_D), flags(_flags), transposed(0), symmetric(0) {
   }
 

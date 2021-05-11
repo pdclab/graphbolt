@@ -31,7 +31,7 @@ enum UpdateType { edge_addition_enum, edge_deletion_enum };
 
 #ifdef EDGEDATA
 #else
-struct EmptyEdgeData{};
+struct EmptyEdgeData {};
 typedef EmptyEdgeData EdgeData;
 
 EdgeData emptyEdgeData;
@@ -151,7 +151,7 @@ inline void computeFunction(const uintV &v,
 // 'i', the change could become significant in a future iteration as it keeps
 // accumulating these changes at every iteration.
 template <class VertexValueType, class GlobalInfoType>
-inline bool isChanged(const VertexValueType &vertex_value_prev,
+inline bool notDelZero(const VertexValueType &vertex_value_prev,
                       const VertexValueType &vertex_value_curr,
                       GlobalInfoType &global_info);
 
@@ -195,30 +195,42 @@ inline bool edgeFunction(const uintV &u, const uintV &v,
 // ======================================================================
 // INCREMENTAL COMPUTING / DETERMINING FRONTIER
 // ======================================================================
-// For a given edge addition (u, v), define if the source vertex has changed.
-// This defines if the source will be active for the first iteration.
-// For example, in PageRank, if the out_degree of u has changed, then the value
-// of u pushed to all its outNeighbors is changed too. So, if out_degree(u) in
-// the updated graph is not equal to its out_degree in the previous version of
-// the graph, return true. Otherwise, return false. NOTE: Ensure that you store
-// the relevant information required (for algorithm/application) for a given
-// graph version in the global_info object. Example: out_degree of all vertices
-// has to be stored for a given graph.
+// For a given edge addition (u, v), define how it affects the source vertex in
+// the first iteration.
+// activateInCurrentIteration defines if the source vertex will be
+// active for the first iteration. For example, in PageRank, if the out_degree
+// of u has changed, then the value of u pushed to all its outNeighbors is
+// changed too. So, if out_degree(u) in the updated graph is not equal to its
+// out_degree in the previous version of the graph, return true. Otherwise,
+// return false. NOTE: Ensure that you store the relevant information required
+// (for algorithm/application) for a given graph version in the global_info
+// object. Example: out_degree of all vertices has to be stored for a given
+// graph.
+// forceComputeInCurrentIteration defines if the source vertex will have to be
+// recomputed in the first iteration. For example, in COEM, if the sum of
+// inWeights of a vertex changes, then computeFuntion() should be
+// called for that vertex in the first iteration.
 template <class GlobalInfoType>
 inline void hasSourceChangedByUpdate(const uintV &v, UpdateType update_type,
                                      bool &activateInCurrentIteration,
+                                     bool &forceComputeInCurrentIteration,
                                      GlobalInfoType &global_info,
                                      GlobalInfoType &global_info_old);
 
 // For a given edge addition (u, v), define if the destination vertex has
-// changed. This defines if the destination will be active for the first
-// iteration. NOTE: Ensure that you store the relevant information required (for
-// algorithm/application) for a given graph version in the global_info object.
-// Example: out_degree of all vertices has to be stored for a given graph.
+// changed.
+// activateInCurrentIteration defines if the destination vertex will be active
+// for the first iteration. NOTE: Ensure that you store the relevant information
+// required (for algorithm/application) for a given graph version in the
+// global_info object. Example: out_degree of all vertices has to be stored for
+// a given graph.
+// forceComputeInCurrentIteration defines if the destination vertex will have to
+// be recomputed in the first iteration.
 template <class GlobalInfoType>
 inline void hasDestinationChangedByUpdate(const uintV &v,
                                           UpdateType update_type,
                                           bool &activateInCurrentIteration,
+                                          bool &forceComputeInCurrentIteration,
                                           GlobalInfoType &global_info,
                                           GlobalInfoType &global_info_old);
 
@@ -299,7 +311,7 @@ public:
                   GlobalInfoType &_global_info, bool _use_lock,
                   commandLine _config)
       : my_graph(_my_graph), max_iterations(_max_iter),
-        history_iterations(_max_iter), converged_iteration(_max_iter),
+        history_iterations(_max_iter), converged_iteration(0),
         global_info(_global_info), use_lock(_use_lock), global_info_old(),
         config(_config), ingestor(_my_graph, _config), current_batch(0),
         adaptive_executor(history_iterations) {
@@ -497,7 +509,7 @@ public:
       cout << "Indegree " << my_graph.V[curr].getInDegree() << "\n";
       cout << "Outdegree " << my_graph.V[curr].getOutDegree() << "\n";
       printHistory(curr, aggregation_values, vertex_values, global_info,
-                   history_iterations);
+                   converged_iteration);
     }
   }
 
@@ -523,13 +535,11 @@ public:
       }
     }
     cout << "\n";
-    current_batch++;
   }
   // ======================================================================
   // RUN AND INITIAL COMPUTE
   // ======================================================================
   void run() {
-    // TODO : Update converged_iteration for fullCompute and deltaCompute
     initialCompute();
 
     // ======================================================================
@@ -537,6 +547,7 @@ public:
     // ======================================================================
     ingestor.validateAndOpenFifo();
     while (ingestor.processNextBatch()) {
+      current_batch++;
       edgeArray &edge_additions = ingestor.getEdgeAdditions();
       edgeArray &edge_deletions = ingestor.getEdgeDeletions();
       // ingestor.edge_additions and ingestor.edge_deletions have been added
@@ -547,12 +558,15 @@ public:
   }
 
   void initialCompute() {
-    timer full_timer;
+    timer full_timer, t1;
     full_timer.start();
+    t1.start();
+
+    global_info.init();
 
     // Initilaize frontier
     // The other values are already initialized with the default values during
-    // initialization of the GraphBoltEngineSimple3
+    // initialization of the GraphBoltEngine
     parallel_for(uintV v = 0; v < n; v++) {
       frontier_next[v] = 0;
       frontier_curr[v] = 0;
@@ -574,15 +588,15 @@ public:
   // ADAPTIVE SWITCHING TO TRADITIONAL INCREMENTAL COMPUTATION
   // ======================================================================
   bool shouldSwitch(int iter, double dz_inc_iter_time) {
-    if (iter > 1) {
+    if (iter > 0) {
       if (adaptive_executor.approximateTimeForCurrIter() < dz_inc_iter_time) {
         return true;
       }
     }
     // Update approximate_time_for_prev_iteration for next iteration
     parallel_for(uintV v = 0; v < n; v++) {
-      if (isChanged(vertex_values[iter][v], vertex_values[iter - 1][v],
-                    global_info) ||
+      if ((iter > 0 && notDelZero(vertex_values[iter][v],
+                                 vertex_values[iter - 1][v], global_info)) ||
           forceActivateVertexForIteration(v, iter + 1, global_info)) {
         // We will use frontier_next as it is not being used by
         // deltaCompute
@@ -602,7 +616,7 @@ public:
     // If called at beginning of iteration, use iter-1 and iter-2 to decide
     // whether a vertex is active
     parallel_for(uintV v = 0; v < n; v++) {
-      if (isChanged(vertex_values[iter - 1][v], vertex_values[iter - 2][v],
+      if (notDelZero(vertex_values[iter - 1][v], vertex_values[iter - 2][v],
                     global_info) ||
           forceActivateVertexForIteration(v, iter, global_info)) {
         // Update frontier_curr with active vertices for traditional
@@ -619,8 +633,8 @@ public:
       }
       frontier_next[v] = 0;
     }
-    cout << "Switching to traditional incremental computation at iteration: "
-         << iter << "\n";
+    cout << "*\n";
+
     return traditionalIncrementalComputation(iter);
   }
 };

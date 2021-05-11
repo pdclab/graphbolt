@@ -30,7 +30,6 @@
 #include "../core/main.h"
 #include <math.h>
 
-#define DEBUG_ROUND 100
 #define PARTITION_FILE_DEFAULT ""
 #define SEED_FILE_DEFAULT ""
 #define NUMBER_OF_FEATURES 2
@@ -123,6 +122,9 @@ public:
     seed_flags = object.seed_flags;
   }
 
+   void init() {}
+
+
 #ifdef EDGEDATA
 #else
   inline double getWeight(uintV i, uintV j) {
@@ -158,7 +160,7 @@ public:
     W.del();
   }
 
-  inline bool isSeed(uintEE i) const { return seed_flags[i]; }
+  inline bool isSeed(uintV i) const { return seed_flags[i]; }
 
   void copy(const LPInfo &object) {
     // copy other static objects
@@ -355,7 +357,7 @@ inline void computeFunction(const uintV &v,
 }
 
 template <class VertexValueType, class GlobalInfoType>
-inline bool isChanged(const VertexValueType &value_curr,
+inline bool notDelZero(const VertexValueType &value_curr,
                       const VertexValueType &value_next,
                       GlobalInfoType &global_info) {
   for (int i = 0; i < NUMBER_OF_FEATURES; i++) {
@@ -407,6 +409,7 @@ inline bool edgeFunction(const uintV &u, const uintV &v,
 template <class GlobalInfoType>
 inline void hasSourceChangedByUpdate(const uintV &v, UpdateType update_type,
                                      bool &activateInCurrentIteration,
+                                     bool &forceComputeInCurrentIteration,
                                      GlobalInfoType &global_info,
                                      GlobalInfoType &global_info_old) {}
 
@@ -414,6 +417,7 @@ template <class GlobalInfoType>
 inline void hasDestinationChangedByUpdate(const uintV &v,
                                           UpdateType update_type,
                                           bool &activateInCurrentIteration,
+                                          bool &forceComputeInCurrentIteration,
                                           GlobalInfoType &global_info,
                                           GlobalInfoType &global_info_old) {}
 
@@ -448,8 +452,8 @@ template <class vertex> void compute(graph<vertex> &G, commandLine config) {
   string seeds_file_path =
       config.getOptionValue("-seedsFile", PARTITION_FILE_DEFAULT);
   double mod_val = config.getOptionDoubleValue("-modVal", MOD_VAL_LP);
-  double epsilon = 0.010000000000000000000000000d;
-  double alpha = 0.150000000000000000000000000d;
+  double epsilon = config.getOptionDoubleValue("-epsilon", 0.01d);
+  double alpha = 0.15d;
 
   LPInfo<vertex> global_info(&G, n, epsilon, mod_val, alpha);
 

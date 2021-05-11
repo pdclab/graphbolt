@@ -43,13 +43,13 @@ using namespace std;
 #endif
 #define USE_PARALLEL_SCAN
 
+#ifndef DEBUG_UTIL_H
+vector<int> debug_vertices = {624};
+#endif
+
 #define TIME_PRECISION 7
 #define VAL_PRECISION 7
 #define VAL_PRECISION2 13
 #define PRINT_WIDTH 12
-
-#define MOD_VAL 0.00190000001000000000
-
-vector<int> debug_vertices = {624};
 
 #endif // _UTIL_H

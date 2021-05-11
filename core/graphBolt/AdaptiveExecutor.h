@@ -124,6 +124,10 @@ public:
     return approximate_time_for_curr_iter;
   }
 
+  inline void setApproximateTimeForCurrIter(double t_curr_iter_time) {
+    approximate_time_for_curr_iter = t_curr_iter_time;
+  }
+
   inline void updateApproximateTimeForEdges(long t_active_edges) {
     approximate_time_for_curr_iter = t_active_edges * edge_map_slope +
                                      edge_map_intercept + avg_vertex_map_time +

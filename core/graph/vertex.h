@@ -55,9 +55,7 @@ struct symmetricVertex {
   EdgeData *getInEdgeDataArray() const { return edgeDataArray; }
   EdgeData *getOutEdgeDataArray() const { return edgeDataArray; }
   void setInEdgeDataElement(intE j, EdgeData data) { edgeDataArray[j] = data; }
-  void setOutEdgeDataElement(intE j, EdgeData data) {
-    edgeDataArray[j] = data;
-  }
+  void setOutEdgeDataElement(intE j, EdgeData data) { edgeDataArray[j] = data; }
   void setInEdgeDataArray(EdgeData *_i) { edgeDataArray = _i; }
   void setOutEdgeDataArray(EdgeData *_i) { edgeDataArray = _i; }
 #endif
