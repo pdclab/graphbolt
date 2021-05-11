@@ -143,7 +143,8 @@ public:
 
   template <class P>
   friend ostream &operator<<(ostream &os, const DependencyData<P> &dt) {
-    os << dt.value << " " << dt.level;
+    // os << dt.value << " " << dt.level;
+    os << dt.value;
     return os;
   }
 

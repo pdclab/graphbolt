@@ -2,9 +2,12 @@
 
 **GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs**
 
+
 ## 1. What is it?
 
 GraphBolt is an efficient streaming graph processing system that provides Bulk Synchronous Parallel (BSP) guarantees. GraphBolt performs dependency-driven incremental processing which quickly reacts to graph changes, and provides low latency & high throughput processing. [[Read more]](https://www.cs.sfu.ca/~keval/contents/papers/graphbolt-eurosys19.pdf)
+
+GraphBolt, now incorporates the DZiG run-time inorder to perform sparsity-aware incremental processing, thereby pushing the boundary of dependency-driven processing of streaming graphs. [[Read more]](https://www.cs.sfu.ca/~keval/contents/papers/dzig-eurosys21.pdf)
 
 For asynchronous algorithms, GraphBolt incorporates KickStarter's light-weight dependency tracking and trimming strategy. [[Read more]](https://www.cs.sfu.ca/~keval/contents/papers/kickstarter-asplos17.pdf)
 
@@ -12,7 +15,7 @@ For asynchronous algorithms, GraphBolt incorporates KickStarter's light-weight d
 
 ### 2.1 Core Organization
 
-The `core/graphBolt/` folder contains the [GraphBolt Engine](#3-graphbolt-engine), the [KickStarter Engine](#4-kickstarter-engine), and our [Stream Ingestor](#5-stream-ingestor) module. The application/benchmark codes (e.g., PageRank, SSSP, etc.) can be found in the `apps/` directory. Useful helper files for generating the stream of changes (`tools/generators/streamGenerator.C`), creating the graph inputs in the correct format (`tools/converters/SNAPtoAdjConverter.C` - from ligra's codebase), and comparing the output of the algorithms (`tools/output_comparators/`) are also provided.
+The `core/graphBolt/` folder contains the [GraphBolt Engine](#3-graphbolt-engine), the [KickStarter Engine](#4-kickstarter-engine), and our [Stream Ingestor](#5-stream-ingestor) module. The application/benchmark codes (e.g., PageRank, SSSP, etc.) can be found in the `apps/` directory. Useful helper files for generating the stream of changes (`tools/generators/streamGenerator.C`), creating the graph inputs in the correct format (`tools/converters/SNAPtoAdjConverter.C` - from Ligra's codebase), and comparing the output of the algorithms (`tools/output_comparators/`) are also provided.
 
 ### 2.2 Requirements
 - g++ >= 5.3.0 with support for Cilk Plus.
@@ -55,10 +58,11 @@ For example,
 ```bash
 $   # Ensure that LD_PRELOAD is set as specified by the install_mimalloc.sh
 $   ./PageRank -numberOfUpdateBatches 2 -nEdges 1000 -streamPath ../inputs/sample_edge_operations.txt -outputFile /tmp/output/pr_output ../inputs/sample_graph.adj
-$   ./LabelPropagation -numberOfUpdateBatches 3 -nEdges 2000 -streamPath ../inputs/sample_edge_operations.pipe -seedsFile ../inputs/sample_seeds_file -outputFile /tmp/output/lp_output ../inputs/sample_graph.adj
+$   ./LabelPropagation -numberOfUpdateBatches 3 -nEdges 2000 -streamPath ../inputs/sample_edge_operations.txt -seedsFile ../inputs/sample_seeds_file -outputFile /tmp/output/lp_output ../inputs/sample_graph.adj
+$   ./COEM -s -numberOfUpdateBatches 3 -nEdges 2000 -streamPath ../inputs/sample_edge_operations.txt -seedsFile ../inputs/sample_seeds_file -partitionsFile ../inputs/sample_partitions_file -outputFile /tmp/output/coem_output ../inputs/sample_graph.adj
 $   ./CF -s -numberOfUpdateBatches 2 -nEdges 10000 -streamPath ../inputs/sample_edge_operations.txt -partitionsFile ../inputs/sample_partitions_file -outputFile /tmp/output/cf_output ../inputs/sample_graph.adj.un
-$   ./SSSP -source 0 -numberOfUpdateBatches 1 -nEdges 500 -streamPath ../inputs/sample_edge_operations.pipe -outputFile /tmp/output/sssp_output ../inputs/sample_graph.adj
-$   ./BFS -source 0 -numberOfUpdateBatches 1 -nEdges 50000 -streamPath ../inputs/sample_edge_operations.pipe -outputFile /tmp/output/bfs_output ../inputs/sample_graph.adj
+$   ./SSSP -source 0 -numberOfUpdateBatches 1 -nEdges 500 -streamPath ../inputs/sample_edge_operations.txt -outputFile /tmp/output/sssp_output ../inputs/sample_graph.adj
+$   ./BFS -source 0 -numberOfUpdateBatches 1 -nEdges 50000 -streamPath ../inputs/sample_edge_operations.txt -outputFile /tmp/output/bfs_output ../inputs/sample_graph.adj
 ```
 Other additional parameters may be required depending on the algorithm. Refer to the `Compute()` function in the application code (`apps/PageRank.C`, `apps/SSSP.C` etc.) for the supported arguments. Additional configurations for the graph ingestor and the graph can be found in [Section 5](#5-stream-ingestor).
 
@@ -160,17 +164,17 @@ Note that these functions do not require CAS or locks. In the case of complex ag
 
 #### Vertex compute function and determine end of computation:
 - computeFunction()
-- isChanged()
+- notDelZero()
 
 Given an aggregation value, `computeFunction()` computes the vertex value corresponding to this aggregation value.
-In order to detemine the convergence condition, the `isChanged()` is used to determine whether the value of vertex has significantly changed compared to its previous value. 
+In order to detemine the convergence condition, the `notDelZero()` is used to determine whether the value of vertex has significantly changed compared to its previous value. 
 Both these functions do not require CAS or locks as they will be invoked in a vertex parallel manner.
 
 #### Determine how an edge update affects the source / destination:
 - hasSourceChangedByUpdate()
 - hasDestinationChangedByUpdate()
 
-Should return true if the source or destination vertex of an edge operation becomes active in the first iteration. For example, in PageRank, if the out_degree of a vertex changes, then it will be active in the first iteration.
+These functions are used to define how an edge update affects the source and destination vertex, i.e., whether the vertex should be activated or its value recomputed (using `computeFuntion()`) in the first iteration. For example, in PageRank, if the out_degree of a vertex changes, then it will be active in the first iteration. While in COEM, if the sum of inWeights of a vertex changes, then its value should be computed in the first iteration.
 
 #### Compute function
 - compute()
@@ -297,14 +301,30 @@ The weighted adjacency graph can then be used in user programs by defining the c
 Some utility functions from [Ligra](https://github.com/jshun/ligra) and [Problem Based Benchmark Suite](http://www.cs.cmu.edu/~pbbs/index.html) are used as part of this project. We are thankful to them for releasing their source code.
 
 ## 8. Resources
-Mugilan Mariappan and Keval Vora. [GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs](https://dl.acm.org/citation.cfm?id=3303974). European Conference on Computer Systems (**EuroSys'19**). Dresden, Germany, March 2019.
+Mugilan Mariappan, Joanna Che and Keval Vora. [DZiG: Sparsity-Aware Incremental Processing of Streaming Graphs](https://dl.acm.org/doi/10.1145/3447786.3456230). European Conference on Computer Systems (**EuroSys'21**). Online Event, United Kingdom, April 2021.
 
-Keval Vora, Rajiv Gupta and Guoqing Xu  [KickStarter: Fast and Accurate Computations on Streaming Graphs via Trimmed Approximations](https://dl.acm.org/citation.cfm?id=3093336.3037748). Architectural Support for Programming Languages and Operating Systems (**ASPLOS'17**). Xi'an, China, April 2017.
+Mugilan Mariappan and Keval Vora. [GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs](https://dl.acm.org/citation.cfm?id=3303974). European Conference on Computer Systems (**EuroSys'19**). Dresden, Germany, March 2019.
 
 
 To cite, you can use the following BibTeX entries:
 
 ```
+@inproceedings{10.1145/3447786.3456230,
+ author = {Mariappan, Mugilan and Che, Joanna and Vora, Keval},
+ title = {DZiG: Sparsity-Aware Incremental Processing of Streaming Graphs},
+ booktitle = {Proceedings of the Sixteenth European Conference on Computer Systems},
+ series = {EuroSys '21}
+ year = {2021},
+ isbn = {9781450383349},
+ location = {Online Event, United Kingdom},
+ pages = {83–98},
+ numpages = {16},
+ url = {https://doi.org/10.1145/3447786.3456230},
+ doi = {10.1145/3447786.3456230},
+ publisher = {Association for Computing Machinery},
+ address = {New York, NY, USA},
+}
+
 @inproceedings{Mariappan:2019:GDS:3302424.3303974,
  author = {Mariappan, Mugilan and Vora, Keval},
  title = {GraphBolt: Dependency-Driven Synchronous Processing of Streaming Graphs},
@@ -324,21 +344,4 @@ To cite, you can use the following BibTeX entries:
  keywords = {Incremental Processing, Streaming Graphs},
 } 
 
-@inproceedings{Vora:2017:KFA:3037697.3037748,
- author = {Vora, Keval and Gupta, Rajiv and Xu, Guoqing},
- title = {KickStarter: Fast and Accurate Computations on Streaming Graphs via Trimmed Approximations},
- booktitle = {Proceedings of the Twenty-Second International Conference on Architectural Support for Programming Languages and Operating Systems},
- series = {ASPLOS '17},
- year = {2017},
- isbn = {978-1-4503-4465-4},
- location = {Xi'an, China},
- pages = {237--251},
- numpages = {15},
- url = {http://doi.acm.org/10.1145/3037697.3037748},
- doi = {10.1145/3037697.3037748},
- acmid = {3037748},
- publisher = {ACM},
- address = {New York, NY, USA},
- keywords = {graph processing, streaming graphs, value dependence},
-} 
 ```

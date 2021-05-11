@@ -42,6 +42,8 @@ public:
   void processUpdates(edgeArray &edge_additions, edgeArray &edge_deletions) {}
 
   void cleanup() {}
+
+  void init() {}
 };
 
 // ======================================================================
